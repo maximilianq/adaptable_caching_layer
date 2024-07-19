@@ -1,0 +1,15 @@
+[global]
+thread
+ioengine=sync
+directory=/home/quaeck/CLionProjects/ld-preload-benchmark/storage/folder0/subfolder0
+direct=1
+
+[random-read]
+rw=randread
+runtime=15
+nrfiles=25
+numjobs=1
+size=1m
+bsrange=1k-8k
+file_service_type=random
+time_based=1
