@@ -1,6 +1,7 @@
 #include "lookahead.h"
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <time.h>
 #include <limits.h>
 #include <stdio.h>
@@ -11,8 +12,10 @@
 #include "file.h"
 #include "path.h"
 #include "queue.h"
+#include "operations.h"
+#include "calls.h"
 
-queue_t * queue;
+cache_t * cache_test;
 
 void process_lookahead(char * path) {
 
@@ -55,6 +58,14 @@ void process_lookahead(char * path) {
             perror("ERROR: could not set xattr to cache file!\n");
             exit(EXIT_FAILURE);
         }
+
+        for (int i = 0; i < 1024; i++) {
+            if ((cache_test->c_items)[i] != NULL) {
+                if(strcmp(((cache_test->c_items)[i]->c_path), cache_path)) {
+                    (cache_test->c_items)[i]->c_cache = sys_open(cache_path, O_RDWR, 0);
+                }
+            }
+        }
     }
 
     closedir(source_directory);
@@ -62,10 +73,10 @@ void process_lookahead(char * path) {
 
 void * handle_lookahead(void * data) {
 
-    queue = (queue_t *) data;
+    cache_test = (cache_t *) data;
 
     char * value;
-    while((value = dequeue(queue))) {
+    while((value = dequeue(&(cache_test->c_queue)))) {
         process_lookahead(value);
     }
 

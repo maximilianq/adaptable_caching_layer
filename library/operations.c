@@ -28,13 +28,7 @@ bool running_lookahead = false;
 pthread_t thread_cleanup;
 bool running_cleanup = false;
 
-typedef struct {
-	int c_cache;
-	size_t c_lower;
-	size_t c_upper;
-} cache_item_t;
-
-cache_item_t * cache[1024];
+cache_t * cache = NULL;
 
 int acl_open(const char * path, int flags, mode_t mode) {
 
@@ -50,11 +44,14 @@ int acl_open(const char * path, int flags, mode_t mode) {
     char * process_path = malloc(PATH_MAX * sizeof(char));
     strcpy(process_path, source_path);
 
+	if (cache == NULL)
+		cache = (cache_t *) malloc(sizeof(cache_t));
+
 	// launch helper thread that caches files in directory
     if (!running_lookahead) {
-        init_queue(&queue_lookahead);
+        init_queue(&(cache->c_queue));
 		running_lookahead = true;
-        pthread_create(&thread_lookahead, NULL, handle_lookahead, &queue_lookahead);
+        pthread_create(&thread_lookahead, NULL, handle_lookahead, cache);
 	}
 
 	// launch helper thread that caches files in directory
@@ -68,10 +65,11 @@ int acl_open(const char * path, int flags, mode_t mode) {
 		return source_file;
 	}
 
-    cache[source_file] = (cache_item_t *) malloc(sizeof(cache_item_t));
-	cache[source_file]->c_cache = -1;
-	cache[source_file]->c_lower = -1;
-	cache[source_file]->c_upper = -1;
+    (cache->c_items)[source_file] = (cache_item_t *) malloc(sizeof(cache_item_t));
+	(cache->c_items)[source_file]->c_cache = -1;
+	strcpy((cache->c_items)[source_file]->c_path, cache_path);
+	(cache->c_items)[source_file]->c_lower = -1;
+	(cache->c_items)[source_file]->c_upper = -1;
 
 	if ((cache_file = sys_open(cache_path, flags, mode)) == -1) {
 
@@ -80,7 +78,7 @@ int acl_open(const char * path, int flags, mode_t mode) {
 		    exit(EXIT_FAILURE);
         }
 
-	    enqueue(&queue_lookahead, process_path);
+	    enqueue(&(cache->c_queue), process_path);
 
         return source_file;
 	}
@@ -122,22 +120,22 @@ int acl_open(const char * path, int flags, mode_t mode) {
         exit(EXIT_FAILURE);
     }
 
-    cache[source_file]->c_cache = cache_file;
+    (cache->c_items)[source_file]->c_cache = cache_file;
 
     return source_file;
 }
 
 ssize_t acl_read(int fd, void * buffer, size_t count) {
 
-    if (cache[fd] == NULL || cache[fd]->c_cache == -1) {
+    if ((cache->c_items)[fd] == NULL || (cache->c_items)[fd]->c_cache == -1) {
         return sys_read(fd, buffer, count);
     }
 
     // set offset according to offset of source file
     off_t offset = lseek(fd, 0, SEEK_CUR);
-    lseek(cache[fd]->c_cache, offset, SEEK_SET);
+    lseek((cache->c_items)[fd]->c_cache, offset, SEEK_SET);
 
-    ssize_t bytes_read = sys_read(cache[fd]->c_cache, buffer, count);
+    ssize_t bytes_read = sys_read((cache->c_items)[fd]->c_cache, buffer, count);
 
     // set new offset according to bytes read
     lseek(fd, bytes_read, SEEK_CUR);
@@ -147,23 +145,23 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 
 ssize_t acl_write(int fd, const void * buffer, size_t count) {
 
-	if (cache[fd] == NULL || cache[fd]->c_cache == -1) {
+	if ((cache->c_items)[fd] == NULL || (cache->c_items)[fd]->c_cache == -1) {
 		return sys_write(fd, buffer, count);
     }
 
     // set offset according to offset of source file
     off_t offset = lseek(fd, 0, SEEK_CUR);
-    lseek(cache[fd]->c_cache, offset, SEEK_SET);
+    lseek((cache->c_items)[fd]->c_cache, offset, SEEK_SET);
 
-	ssize_t bytes_write = sys_write(cache[fd]->c_cache, buffer, count);
+	ssize_t bytes_write = sys_write((cache->c_items)[fd]->c_cache, buffer, count);
 
 	// calculate modification bound of current request
 	ssize_t lower = offset;
 	ssize_t upper = offset + bytes_write;
 
 	// set total modification bounds of file as minimum of lower and maximum of upper
-    cache[fd]->c_lower = cache[fd]->c_lower == -1 ? lower : (cache[fd]->c_lower < lower ? cache[fd]->c_lower : lower);
-    cache[fd]->c_upper = cache[fd]->c_upper == -1 ? upper : (cache[fd]->c_upper > upper ? cache[fd]->c_upper : upper);
+    (cache->c_items)[fd]->c_lower = (cache->c_items)[fd]->c_lower == -1 ? lower : ((cache->c_items)[fd]->c_lower < lower ? (cache->c_items)[fd]->c_lower : lower);
+    (cache->c_items)[fd]->c_upper = (cache->c_items)[fd]->c_upper == -1 ? upper : ((cache->c_items)[fd]->c_upper > upper ? (cache->c_items)[fd]->c_upper : upper);
 
     // set new offset according to bytes read
     lseek(fd, bytes_write, SEEK_CUR);
@@ -174,28 +172,28 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 int acl_close(int fd) {
 
     // if file not managed close only source file
-	if (cache[fd] == NULL) {
+	if ((cache->c_items)[fd] == NULL) {
         return sys_close(fd);
     }
 
     // if file is not in cache close only source file
-    if (cache[fd]->c_cache == -1) {
-        free(cache[fd]);
-        cache[fd] = NULL;
+    if ((cache->c_items)[fd]->c_cache == -1) {
+        free((cache->c_items)[fd]);
+        (cache->c_items)[fd] = NULL;
         return sys_close(fd);
     }
 
     // if file in cache has been modified write changes to disk
-    if (cache[fd]->c_lower != -1 && cache[fd]->c_upper != -1) {
-        copy_data_interval(cache[fd]->c_cache, fd, cache[fd]->c_lower, (cache[fd]->c_upper - cache[fd]->c_lower));
+    if ((cache->c_items)[fd]->c_lower != -1 && (cache->c_items)[fd]->c_upper != -1) {
+        copy_data_interval((cache->c_items)[fd]->c_cache, fd, (cache->c_items)[fd]->c_lower, ((cache->c_items)[fd]->c_upper - (cache->c_items)[fd]->c_lower));
     }
 
     // close cache file
-	sys_close(cache[fd]->c_cache);
+	sys_close((cache->c_items)[fd]->c_cache);
 
     // clear cache struct on file close
-    free(cache[fd]);
-    cache[fd] = NULL;
+    free((cache->c_items)[fd]);
+    (cache->c_items)[fd] = NULL;
 
     // release file lock
     struct flock lock;

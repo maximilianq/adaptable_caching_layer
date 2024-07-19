@@ -1,7 +1,7 @@
 [global]
 thread
 ioengine=sync
-directory=/home/quaeck/CLionProjects/ld-preload-benchmark/storage/folder0/subfolder0
+directory=/mnt/nfs4/benchmark
 direct=1
 
 [random-read]

@@ -2,6 +2,21 @@
 #define OPERATIONS_H
 
 #include <stdlib.h>
+#include <limits.h>
+
+#include "queue.h"
+
+typedef struct {
+    int c_cache;
+    char c_path[PATH_MAX];
+    size_t c_lower;
+    size_t c_upper;
+} cache_item_t;
+
+typedef struct {
+    queue_t c_queue;
+    cache_item_t * c_items[1024];
+} cache_t;
 
 int acl_open(const char * path, int flags, mode_t mode);
 
