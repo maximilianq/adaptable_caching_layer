@@ -9,7 +9,6 @@
 #include "operations.h"
 
 int open(const char * path, int flags, ...) {
-
     va_list args;
     va_start(args, flags);
     mode_t mode = flags & O_CREAT ? va_arg(args, mode_t) : 0;
@@ -19,7 +18,6 @@ int open(const char * path, int flags, ...) {
 }
 
 int open64(const char * path, int flags, ...) {;
-
     va_list args;
     va_start(args, flags);
     mode_t mode = flags & O_CREAT ? va_arg(args, mode_t) : 0;

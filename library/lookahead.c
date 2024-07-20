@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "lookahead.h"
 
 #include <dirent.h>
@@ -59,13 +61,17 @@ void process_lookahead(char * path) {
             exit(EXIT_FAILURE);
         }
 
+        pthread_mutex_lock(&(cache_test->c_mutex));
+
         for (int i = 0; i < 1024; i++) {
             if ((cache_test->c_items)[i] != NULL) {
                 if(strcmp(((cache_test->c_items)[i]->c_path), cache_path)) {
-                    (cache_test->c_items)[i]->c_cache = sys_open(cache_path, O_RDWR, 0);
+                    (cache_test->c_items)[i]->c_cache = sys_open(cache_path, O_RDWR | O_DIRECT, 0);
                 }
             }
         }
+
+        pthread_mutex_unlock(&(cache_test->c_mutex));
     }
 
     closedir(source_directory);

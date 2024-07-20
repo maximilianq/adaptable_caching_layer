@@ -13,6 +13,8 @@
 #define BLOCK_SIZE 131072
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
+char * data_buffer = NULL;
+
 void copy_data_interval(int source, int target, off_t offset, size_t size) {
 
     char data[BLOCK_SIZE];
@@ -38,7 +40,7 @@ void copy_data_interval(int source, int target, off_t offset, size_t size) {
             break;
         }
 
-        if ((bytes_written = write(target, data, bytes_read)) == -1) {
+        if ((bytes_written = sys_write(target, data, bytes_read)) == -1) {
             perror("ERROR: could not write target file!");
             exit(EXIT_FAILURE);
         }
@@ -55,14 +57,16 @@ void copy_data_interval(int source, int target, off_t offset, size_t size) {
 
 void copy_data(int source_file, int cache_file) {
 
-    char data[131072];
+    if (data_buffer == NULL)
+        data_buffer = (char *) malloc(sizeof(char) * 131072);
+
     ssize_t bytes_read, bytes_written;
 
     lseek(source_file, 0, SEEK_SET);
     lseek(cache_file, 0, SEEK_SET);
 
-    while ((bytes_read = sys_read(source_file, data, 131072)) > 0) {
-        bytes_written = write(cache_file, data, bytes_read);
+    while ((bytes_read = sys_read(source_file, data_buffer, 131072)) > 0) {
+        bytes_written = sys_write(cache_file, data_buffer, bytes_read);
         if (bytes_written != bytes_read) {
             perror("Error writing to destination file");
             exit(EXIT_FAILURE);

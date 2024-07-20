@@ -27,20 +27,22 @@ void free_queue(queue_t * queue) {
 
 void enqueue(queue_t * queue, char * data) {
 
-    sem_wait(&queue->full);
     pthread_mutex_lock(&queue->mutex);
 
-    queue->data[queue->back] = data;
-    queue->back = (queue->back + 1) % QUEUE_SIZE;
-    queue->size++;
+    if (queue->size < QUEUE_SIZE) {
+        queue->data[queue->back] = data;
+        queue->back = (queue->back + 1) % QUEUE_SIZE;
+        queue->size++;
+        sem_post(&queue->empty);
+    }
 
     pthread_mutex_unlock(&queue->mutex);
-    sem_post(&queue->empty);
 }
 
 char * dequeue(queue_t * queue) {
 
     sem_wait(&queue->empty);
+
     pthread_mutex_lock(&queue->mutex);
 
     char * item = queue->data[queue->front];
@@ -48,7 +50,6 @@ char * dequeue(queue_t * queue) {
     queue->size--;
 
     pthread_mutex_unlock(&queue->mutex);
-    sem_post(&queue->full);
 
     return item;
 }

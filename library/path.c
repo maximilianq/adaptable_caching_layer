@@ -6,9 +6,9 @@
 #include <unistd.h>
 #include <linux/limits.h>
 
-//#define SOURCE_PATH "/media/quaeck/storage"
+#define SOURCE_PATH "/media/quaeck/storage"
 //#define SOURCE_PATH "/home/quaeck/CLionProjects/ld-preload-benchmark/storage"
-#define SOURCE_PATH "/mnt/nfs4"
+//#define SOURCE_PATH "/mnt/nfs4"
 //#define SOURCE_PATH "/media/quaeck/test.so"
 
 #define CACHE_PATH "/var/cache/iocache"

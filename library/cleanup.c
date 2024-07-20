@@ -30,7 +30,7 @@ void process_cleanup() {
             continue;
         }
 
-        if (cache_stat.st_atime < (current_time - 15)) {
+        if (cache_stat.st_atime < (current_time - 60)) {
             if (unlink(cache_path) == -1) {
                 perror("ERROR: could not remove file from cache!");
                 exit(EXIT_FAILURE);

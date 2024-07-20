@@ -15,7 +15,8 @@ typedef struct {
 
 typedef struct {
     queue_t c_queue;
-    cache_item_t * c_items[1024];
+    cache_item_t * c_items[4096];
+    pthread_mutex_t c_mutex;
 } cache_t;
 
 int acl_open(const char * path, int flags, mode_t mode);
