@@ -6,16 +6,15 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#define QUEUE_SIZE 16384
-
-void init_queue(queue_t * queue) {
-    queue->data = malloc(QUEUE_SIZE * sizeof(char *));
+void init_queue(queue_t * queue, int capacity) {
+    queue->data = malloc(capacity * sizeof(void *));
+    queue->capacity = capacity;
     queue->size = 0;
     queue->front = 0;
     queue->back = 0;
     pthread_mutex_init(&queue->mutex, NULL);
     sem_init(&queue->empty, 0, 0);
-    sem_init(&queue->full, 0, QUEUE_SIZE);
+    sem_init(&queue->full, 0, capacity);
 }
 
 void free_queue(queue_t * queue) {
@@ -25,13 +24,13 @@ void free_queue(queue_t * queue) {
     sem_destroy(&queue->full);
 }
 
-void enqueue(queue_t * queue, char * data) {
+void enqueue(queue_t * queue, void * data) {
 
     pthread_mutex_lock(&queue->mutex);
 
-    if (queue->size < QUEUE_SIZE) {
+    if (queue->size < queue->capacity) {
         queue->data[queue->back] = data;
-        queue->back = (queue->back + 1) % QUEUE_SIZE;
+        queue->back = (queue->back + 1) % queue->capacity;
         queue->size++;
         sem_post(&queue->empty);
     }
@@ -39,14 +38,14 @@ void enqueue(queue_t * queue, char * data) {
     pthread_mutex_unlock(&queue->mutex);
 }
 
-char * dequeue(queue_t * queue) {
+void * dequeue(queue_t * queue) {
 
     sem_wait(&queue->empty);
 
     pthread_mutex_lock(&queue->mutex);
 
-    char * item = queue->data[queue->front];
-    queue->front = (queue->front + 1) % QUEUE_SIZE;
+    void * item = queue->data[queue->front];
+    queue->front = (queue->front + 1) % queue->capacity;
     queue->size--;
 
     pthread_mutex_unlock(&queue->mutex);

@@ -11,21 +11,22 @@
 #include <sys/xattr.h>
 #include <sys/stat.h>
 
-#define MIN_WAIT_TIME 1850
-#define MAX_WAIT_TIME 1900
+#define MIN_WAIT_TIME 50
+#define MAX_WAIT_TIME 100
 
+// Ensure minimum read size and alignment to 4096 bytes
+#define ALIGNMENT 4096
 #define MIN_READ_SIZE 4096
 #define MAX_READ_SIZE 262144
 
 //#define SOURCE_PATH "/mnt/nfs4"
-//#define SOURCE_PATH "/media/quaeck/storage"
-#define SOURCE_PATH "/home/quaeck/CLionProjects/ld-preload-benchmark/storage"
-//#define SOURCE_PATH "/media/quaeck/test.so"
+#define SOURCE_PATH "/media/quaeck/storage"
+//#define SOURCE_PATH "/home/quaeck/CLionProjects/ld-preload-benchmark/storage"
 
 void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned long * total_waiting) {
 
     int file, index, waiting;
-    char path[PATH_MAX], data[MAX_READ_SIZE];
+    char path[PATH_MAX];
 
     *total_waiting = 0;
     *total_bytes = 0;
@@ -34,29 +35,65 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
 
     for (int i = 0; i < iterations; i++) {
 
+        // Seed the random number generator
+        srand(time(NULL));
+
+        // get file path of a random file
         index = rand() % files;
         sprintf(path, "%s/folder%d/subfolder%d/file%d.txt", SOURCE_PATH, (index / (25 * 25)) % 25, (index / 25) % 25, index % 25);
 
-        file = open(path, O_RDONLY);
+        file = open(path, O_RDONLY | O_DIRECT);
         if (file == -1) {
-            perror("ERROR: could not open file!");
+            perror("Error opening file\n");
             exit(EXIT_FAILURE);
         }
 
-        struct stat _stat;
-        fstat(file, &_stat);
+        // Get the file size
+        struct stat file_stat;
+        if (fstat(file, &file_stat) == -1) {
+            perror("Error getting file stats\n");
+            exit(EXIT_FAILURE);
+        }
 
-        int offset = rand() % _stat.st_size;
-        int size = MIN_READ_SIZE + (rand() % (MAX_READ_SIZE - MIN_READ_SIZE));
+        off_t file_size = file_stat.st_size;
 
-        lseek(file, offset, SEEK_SET);
-        ssize_t byte_read = read(file, &data, size);
-        *total_bytes += byte_read;
+        // Generate a random offset and read size
+        off_t offset = (rand() % (file_size / ALIGNMENT)) * ALIGNMENT;
+        size_t size = ((MIN_READ_SIZE + (rand() % (MAX_READ_SIZE - MIN_READ_SIZE))) / ALIGNMENT) * ALIGNMENT;
 
+        // Ensure the read does not go beyond the file size
+        if (offset + size > file_size) {
+            size = file_size - offset;
+            size = (size / ALIGNMENT) * ALIGNMENT;  // Adjust size to be a multiple of ALIGNMENT
+        }
+
+        // Allocate aligned buffer for reading
+        void * buffer;
+        if (posix_memalign(&buffer, ALIGNMENT, size) != 0) {
+            perror("Error allocating aligned memory\n");
+            exit(EXIT_FAILURE);
+        }
+
+        // Perform the read operation
+        if (lseek(file, offset, SEEK_SET) == -1) {
+            perror("Error seeking to offset\n");
+            exit(EXIT_FAILURE);
+        }
+
+        ssize_t bytes_read = read(file, buffer, size);
+        if (bytes_read == -1) {
+            perror("Error reading file\n");
+            exit(EXIT_FAILURE);
+        }
+        *total_bytes += bytes_read;
+
+        // wait a ranfom amount of micro seconds
         waiting = MIN_WAIT_TIME + (rand() % (MAX_WAIT_TIME - MIN_WAIT_TIME));
         usleep(waiting);
         *total_waiting += waiting;
 
+        // Clean up
+        free(buffer);
         close(file);
 
         if (i != 0) {
@@ -72,7 +109,7 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
 int main() {
 
     int files = 6250;
-    int iterations = 62500;
+    int iterations = 31250;
 
     unsigned long total_bytes, total_waiting;
 

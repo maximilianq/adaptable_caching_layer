@@ -17,7 +17,7 @@
 #include "operations.h"
 #include "calls.h"
 
-cache_t * cache_test;
+cache_t * cache_lookahead;
 
 void process_lookahead(char * path) {
 
@@ -61,17 +61,18 @@ void process_lookahead(char * path) {
             exit(EXIT_FAILURE);
         }
 
-        pthread_mutex_lock(&(cache_test->c_mutex));
+        for (int i = 0; i < 4096; i++) {
 
-        for (int i = 0; i < 1024; i++) {
-            if ((cache_test->c_items)[i] != NULL) {
-                if(strcmp(((cache_test->c_items)[i]->c_path), cache_path)) {
-                    (cache_test->c_items)[i]->c_cache = sys_open(cache_path, O_RDWR | O_DIRECT, 0);
+            pthread_mutex_lock(&cache_lookahead->c_items_mutex[i]);
+
+            if (cache_lookahead->c_items[i] != NULL) {
+                if(strcmp(cache_lookahead->c_items[i]->c_path, cache_path)) {
+                    cache_lookahead->c_items[i]->c_file = sys_open(cache_path, cache_lookahead->c_items[i]->c_flags, 0);
                 }
             }
-        }
 
-        pthread_mutex_unlock(&(cache_test->c_mutex));
+	        pthread_mutex_unlock(&cache_lookahead->c_items_mutex[i]);
+        }
     }
 
     closedir(source_directory);
@@ -79,10 +80,10 @@ void process_lookahead(char * path) {
 
 void * handle_lookahead(void * data) {
 
-    cache_test = (cache_t *) data;
+    cache_lookahead = (cache_t *) data;
 
     char * value;
-    while((value = dequeue(&(cache_test->c_queue)))) {
+    while((value = (char *) dequeue(&cache_lookahead->c_lookahead))) {
         process_lookahead(value);
     }
 

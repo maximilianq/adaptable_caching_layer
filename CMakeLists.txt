@@ -13,7 +13,7 @@ add_library(acl SHARED
         library/lookahead.c
         library/cleanup.c
         library/intercept.c
-        test.c
+        library/cache.c
 )
 
 target_link_libraries(acl dl)

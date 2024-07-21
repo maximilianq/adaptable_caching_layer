@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-#include <limits.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -22,31 +21,24 @@
 #include "cleanup.h"
 
 pthread_t thread_lookahead;
-queue_t queue_lookahead;
-bool running_lookahead = false;
-
 pthread_t thread_cleanup;
-bool running_cleanup = false;
 
 bool initialized = false;
+
 cache_t * cache = NULL;
 
 void init() {
 
 	cache = (cache_t *) malloc(sizeof(cache_t));
-	init_queue(&(cache->c_queue));
-	pthread_mutex_init(&(cache->c_mutex), NULL);
 
-	if (!running_lookahead) {
-		pthread_create(&thread_lookahead, NULL, handle_lookahead, cache);
-		running_lookahead = true;
+	init_queue(&cache->c_lookahead, 4096);
+
+	for (int i = 0; i < 4096; i++) {
+		pthread_mutex_init(&cache->c_items_mutex[i], NULL);
 	}
 
-	// launch helper thread that caches files in directory
-	if (!running_cleanup) {
-	    pthread_create(&thread_lookahead, NULL, handle_cleanup, NULL);
-		running_cleanup = true;
-	}
+	pthread_create(&thread_lookahead, NULL, handle_lookahead, cache);
+	pthread_create(&thread_lookahead, NULL, handle_cleanup, cache);
 
 	initialized = true;
 }
@@ -73,13 +65,14 @@ int acl_open(const char * path, int flags, mode_t mode) {
 		return source_file;
 	}
 
-	pthread_mutex_lock(&(cache->c_mutex));
+	pthread_mutex_lock(&cache->c_items_mutex[source_file]);
 
-    (cache->c_items)[source_file] = (cache_item_t *) malloc(sizeof(cache_item_t));
-	(cache->c_items)[source_file]->c_cache = -1;
-	strcpy((cache->c_items)[source_file]->c_path, cache_path);
-	(cache->c_items)[source_file]->c_lower = -1;
-	(cache->c_items)[source_file]->c_upper = -1;
+    cache->c_items[source_file] = (cache_item_t *) malloc(sizeof(cache_item_t));
+	cache->c_items[source_file]->c_file = -1;
+	strcpy(cache->c_items[source_file]->c_path, cache_path);
+	cache->c_items[source_file]->c_lower = -1;
+	cache->c_items[source_file]->c_upper = -1;
+	cache->c_items[source_file]->c_flags = flags;
 
 	if ((cache_file = sys_open(cache_path, flags, mode)) == -1) {
 
@@ -88,9 +81,9 @@ int acl_open(const char * path, int flags, mode_t mode) {
 		    exit(EXIT_FAILURE);
         }
 
-	    enqueue(&(cache->c_queue), process_path);
+	    enqueue(&(cache->c_lookahead), process_path);
 
-		pthread_mutex_unlock(&(cache->c_mutex));
+		pthread_mutex_unlock(&cache->c_items_mutex[source_file]);
 
         return source_file;
 	}
@@ -105,7 +98,7 @@ int acl_open(const char * path, int flags, mode_t mode) {
 
         sys_close(cache_file);
 
-    	pthread_mutex_unlock(&(cache->c_mutex));
+    	pthread_mutex_unlock(&cache->c_items_mutex[source_file]);
 
         return source_file;
     }
@@ -120,7 +113,7 @@ int acl_open(const char * path, int flags, mode_t mode) {
     if (mtime != source_stat.st_mtime) {
         sys_close(cache_file);
 
-		pthread_mutex_unlock(&(cache->c_mutex));
+    	pthread_mutex_unlock(&cache->c_items_mutex[source_file]);
 
         return source_file;
     }
@@ -137,9 +130,9 @@ int acl_open(const char * path, int flags, mode_t mode) {
         exit(EXIT_FAILURE);
     }
 
-    (cache->c_items)[source_file]->c_cache = cache_file;
+    cache->c_items[source_file]->c_file = cache_file;
 
-	pthread_mutex_unlock(&(cache->c_mutex));
+	pthread_mutex_unlock(&cache->c_items_mutex[source_file]);
 
     return source_file;
 }
@@ -149,25 +142,23 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 	if (!initialized)
 		init();
 
-	pthread_mutex_lock(&(cache->c_mutex));
+	pthread_mutex_lock(&cache->c_items_mutex[fd]);
 
-    if ((cache->c_items)[fd] == NULL || (cache->c_items)[fd]->c_cache == -1) {
-
-		pthread_mutex_unlock(&(cache->c_mutex));
-
+    if (cache->c_items[fd] == NULL || cache->c_items[fd]->c_file == -1) {
+    	pthread_mutex_unlock(&cache->c_items_mutex[fd]);
         return sys_read(fd, buffer, count);
     }
 
     // set offset according to offset of source file
     off_t offset = lseek(fd, 0, SEEK_CUR);
-    lseek((cache->c_items)[fd]->c_cache, offset, SEEK_SET);
+    lseek(cache->c_items[fd]->c_file, offset, SEEK_SET);
 
-    ssize_t bytes_read = sys_read((cache->c_items)[fd]->c_cache, buffer, count);
+    ssize_t bytes_read = sys_read(cache->c_items[fd]->c_file, buffer, count);
 
     // set new offset according to bytes read
     lseek(fd, bytes_read, SEEK_CUR);
 
-	pthread_mutex_unlock(&(cache->c_mutex));
+	pthread_mutex_unlock(&cache->c_items_mutex[fd]);
 
     return bytes_read;
 }
@@ -177,33 +168,31 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 	if (!initialized)
 		init();
 
-	pthread_mutex_lock(&(cache->c_mutex));
+	pthread_mutex_lock(&cache->c_items_mutex[fd]);
 
-	if ((cache->c_items)[fd] == NULL || (cache->c_items)[fd]->c_cache == -1) {
-
-		pthread_mutex_unlock(&(cache->c_mutex));
-
+	if (cache->c_items[fd] == NULL || cache->c_items[fd]->c_file == -1) {
+		pthread_mutex_unlock(&cache->c_items_mutex[fd]);
 		return sys_write(fd, buffer, count);
     }
 
     // set offset according to offset of source file
     off_t offset = lseek(fd, 0, SEEK_CUR);
-    lseek((cache->c_items)[fd]->c_cache, offset, SEEK_SET);
+    lseek(cache->c_items[fd]->c_file, offset, SEEK_SET);
 
-	ssize_t bytes_write = sys_write((cache->c_items)[fd]->c_cache, buffer, count);
+	ssize_t bytes_write = sys_write(cache->c_items[fd]->c_file, buffer, count);
 
 	// calculate modification bound of current request
 	ssize_t lower = offset;
 	ssize_t upper = offset + bytes_write;
 
 	// set total modification bounds of file as minimum of lower and maximum of upper
-    (cache->c_items)[fd]->c_lower = (cache->c_items)[fd]->c_lower == -1 ? lower : ((cache->c_items)[fd]->c_lower < lower ? (cache->c_items)[fd]->c_lower : lower);
-    (cache->c_items)[fd]->c_upper = (cache->c_items)[fd]->c_upper == -1 ? upper : ((cache->c_items)[fd]->c_upper > upper ? (cache->c_items)[fd]->c_upper : upper);
+    cache->c_items[fd]->c_lower = cache->c_items[fd]->c_lower == -1 ? lower : (cache->c_items[fd]->c_lower < lower ? cache->c_items[fd]->c_lower : lower);
+    cache->c_items[fd]->c_upper = cache->c_items[fd]->c_upper == -1 ? upper : (cache->c_items[fd]->c_upper > upper ? cache->c_items[fd]->c_upper : upper);
 
     // set new offset according to bytes read
     lseek(fd, bytes_write, SEEK_CUR);
 
-	pthread_mutex_unlock(&(cache->c_mutex));
+	pthread_mutex_unlock(&cache->c_items_mutex[fd]);
 
 	return bytes_write;
 }
@@ -213,37 +202,35 @@ int acl_close(int fd) {
 	if (!initialized)
 		init();
 
-	pthread_mutex_lock(&(cache->c_mutex));
+	pthread_mutex_lock(&cache->c_items_mutex[fd]);
 
     // if file not managed close only source file
-	if (cache == NULL || (cache->c_items)[fd] == NULL) {
-
-		pthread_mutex_unlock(&(cache->c_mutex));
-
+	if (cache->c_items[fd] == NULL) {
+		pthread_mutex_unlock(&cache->c_items_mutex[fd]);
         return sys_close(fd);
     }
 
     // if file is not in cache close only source file
-    if ((cache->c_items)[fd]->c_cache == -1) {
-        free((cache->c_items)[fd]);
-        (cache->c_items)[fd] = NULL;
-
-		pthread_mutex_unlock(&(cache->c_mutex));
-
+    if (cache->c_items[fd]->c_file == -1) {
+        free(cache->c_items[fd]);
+        cache->c_items[fd] = NULL;
+    	pthread_mutex_unlock(&cache->c_items_mutex[fd]);
         return sys_close(fd);
     }
 
     // if file in cache has been modified write changes to disk
-    if ((cache->c_items)[fd]->c_lower != -1 && (cache->c_items)[fd]->c_upper != -1) {
-        copy_data_interval((cache->c_items)[fd]->c_cache, fd, (cache->c_items)[fd]->c_lower, ((cache->c_items)[fd]->c_upper - (cache->c_items)[fd]->c_lower));
+    if (cache->c_items[fd]->c_lower != -1 && cache->c_items[fd]->c_upper != -1) {
+        copy_data_interval(cache->c_items[fd]->c_file, fd, cache->c_items[fd]->c_lower, (cache->c_items[fd]->c_upper - cache->c_items[fd]->c_lower));
     }
 
     // close cache file
-	sys_close((cache->c_items)[fd]->c_cache);
+	sys_close(cache->c_items[fd]->c_file);
 
     // clear cache struct on file close
-    free((cache->c_items)[fd]);
-    (cache->c_items)[fd] = NULL;
+    free(cache->c_items[fd]);
+    cache->c_items[fd] = NULL;
+
+	pthread_mutex_unlock(&cache->c_items_mutex[fd]);
 
     // release file lock
     struct flock lock;
@@ -256,8 +243,6 @@ int acl_close(int fd) {
         perror("ERROR: could not release lock on source file!");
         exit(EXIT_FAILURE);
     }
-
-	pthread_mutex_unlock(&(cache->c_mutex));
 
     // close source file
     return sys_close(fd);
