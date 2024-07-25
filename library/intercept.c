@@ -4,7 +4,6 @@
 
 #include <stdarg.h>
 #include <fcntl.h>
-#include <stdio.h>
 
 #include "operations.h"
 

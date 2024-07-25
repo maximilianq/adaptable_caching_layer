@@ -6,14 +6,9 @@
 #include <unistd.h>
 #include <linux/limits.h>
 
-#define SOURCE_PATH "/media/quaeck/storage"
-//#define SOURCE_PATH "/home/quaeck/CLionProjects/ld-preload-benchmark/storage"
-//#define SOURCE_PATH "/mnt/nfs4"
-//#define SOURCE_PATH "/media/quaeck/test.so"
+#include "constants.h"
 
-#define CACHE_PATH "/var/cache/iocache"
-
-char * get_source_path(const char * input, char * output, size_t size) {
+char * get_full_path(const char * input, char * output, size_t size) {
 
     if (input[0] == '/') {
         strcpy(output, input);
@@ -31,7 +26,7 @@ char * get_cache_path(const char * input, char * output, size_t size) {
 
     char source_path[PATH_MAX];
     if (input[0] != '/') {
-        get_source_path(input, source_path, size);
+        get_full_path(input, source_path, size);
     } else {
         strcpy(source_path, input);
     }

@@ -57,8 +57,12 @@ void copy_data_interval(int source, int target, off_t offset, size_t size) {
 
 void copy_data(int source_file, int cache_file) {
 
-    if (data_buffer == NULL)
-        data_buffer = (char *) malloc(sizeof(char) * 131072);
+    if (data_buffer == NULL) {
+        if (posix_memalign((void **) &data_buffer, 4096, BLOCK_SIZE) != 0) {
+            perror("Error allocating aligned memory\n");
+            exit(EXIT_FAILURE);
+        }
+    }
 
     ssize_t bytes_read, bytes_written;
 
@@ -73,7 +77,6 @@ void copy_data(int source_file, int cache_file) {
         }
     }
 }
-
 
 void copy_file(const char * source_path, const char * cache_path) {
 
