@@ -25,7 +25,6 @@ void cache_init(cache_t * cache) {
     cache->c_capacity = CACHE_SIZE;
 
     init_queue(&cache->c_lookahead, 4096);
-    init_queue(&cache->c_copy, 8192);
 
     pthread_mutex_init(&cache->c_mutex_cache, NULL);
     for (int i = 0; i < 1024; i++) pthread_mutex_init(&cache->c_mutex_mapping[i], NULL);
