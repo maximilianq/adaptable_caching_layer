@@ -14,13 +14,22 @@
 
 #include "calls.h"
 #include "cache.h"
-#include "lookahead.h"
+#include "file.h"
 #include "path.h"
+
+#include "structures/queue.h"
+
+#include "policies/policies.h"
+
+#include "strategies/strategies.h"
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
 
 bool initialized = false;
 
 cache_t * cache = NULL;
-pthread_t thread_lookahead;
+pthread_t threads_lookahead[1];
 
 void init() {
 
@@ -28,7 +37,8 @@ void init() {
 	cache = (cache_t *) malloc(sizeof(cache_t));
 	cache_init(cache);
 
-	pthread_create(&thread_lookahead, NULL, handle_lookahead, cache);
+	for (int i = 0; i < 1; i++)
+		pthread_create(&threads_lookahead[i], NULL, handle_lookahead, cache);
 
 	initialized = true;
 }
@@ -48,10 +58,12 @@ int acl_open(const char * path, int flags, mode_t mode) {
 	}
 
 	// check if file is in cache
-	char * cache_path = cache_query(cache, source_path);
+
+	char cache_path[PATH_MAX];
 	int cache_file = -1;
-	if (cache_path == NULL) {
-		enqueue(&cache->c_lookahead, source_path);
+
+	if(cache_access(cache, source_path, cache_path) == -1) {
+		enqueue(&cache->c_prefetch_entries, source_path);
 	} else {
 		cache_file = sys_open(cache_path, flags, mode);
 	}
@@ -60,22 +72,15 @@ int acl_open(const char * path, int flags, mode_t mode) {
 	pthread_mutex_lock(&cache->c_mutex_mapping[source_file]);
 	cache->c_mapping[source_file] = malloc(sizeof(cache_mapping_t));
 	cache->c_mapping[source_file]->cm_file = cache_file;
-	strcpy(cache->c_mapping[source_file]->cm_path, source_path);
+	strcpy(cache->c_mapping[source_file]->cm_source, source_path);
+	if (cache_file != -1) {
+		strcpy(cache->c_mapping[source_file]->cm_cache, cache_path);
+	}
+	cache->c_mapping[source_file]->cm_flags = flags;
 	cache->c_mapping[source_file]->cm_mode = mode;
 	cache->c_mapping[source_file]->cm_upper = -1;
 	cache->c_mapping[source_file]->cm_lower = -1;
 	pthread_mutex_unlock(&cache->c_mutex_mapping[source_file]);
-
-	struct flock lock;
-	lock.l_type = (flags & O_RDONLY) == O_RDONLY ? F_RDLCK : F_WRLCK;
-	lock.l_whence = SEEK_SET;
-	lock.l_start = 0;
-	lock.l_len = 0;
-
-	if (fcntl(source_file, F_SETLKW, &lock) == -1) {
-		perror("ERROR: could not aquire lock on source file!");
-		exit(EXIT_FAILURE);
-	}
 
     return source_file;
 }
@@ -95,8 +100,8 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 	if (cache->c_mapping[fd]->cm_file == -1) {
 		pthread_mutex_unlock(&cache->c_mutex_mapping[fd]);
 		char * source_path = malloc(PATH_MAX * sizeof(char));
-		strcpy(source_path, cache->c_mapping[fd]->cm_path);
-		enqueue(&cache->c_lookahead, source_path);
+		strcpy(source_path, cache->c_mapping[fd]->cm_source);
+		enqueue(&cache->c_prefetch_entries, source_path);
 		return sys_read(fd, buffer, count);
 	}
 
@@ -139,7 +144,35 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 		return sys_write(fd, buffer, count);
 	}
 
+	if (cache->c_mapping[fd]->cm_file == -1) {
+		pthread_mutex_unlock(&cache->c_mutex_mapping[fd]);
+		return sys_write(fd, buffer, count);
+	}
+
+	// get current offset of filedescriptor
+	off_t offset = lseek(fd, 0, SEEK_CUR);
+	if (offset == -1) {
+		perror("ERROR: could not get offset of filedescriptor!");
+		exit(EXIT_FAILURE);
+	}
+
+	// set offset of original file descriptor to cached file descriptor
+	if (lseek(cache->c_mapping[fd]->cm_file, offset, SEEK_SET) == -1) {
+		perror("ERROR: could not set offset of cache file!");
+		exit(EXIT_FAILURE);
+	}
+
 	ssize_t result = sys_write(cache->c_mapping[fd]->cm_file, buffer, count);
+
+	// set the changed area of the file
+	cache->c_mapping[fd]->cm_lower = cache->c_mapping[fd]->cm_lower == -1 ? offset : min(cache->c_mapping[fd]->cm_lower, offset);
+	cache->c_mapping[fd]->cm_upper = cache->c_mapping[fd]->cm_upper == -1 ? offset + result : min(cache->c_mapping[fd]->cm_upper, offset + result);
+
+	// adapt offset of original filedescriptor
+	if (lseek(fd, result, SEEK_CUR) == -1) {
+		perror("ERROR: could not set offset of source file!");
+		exit(EXIT_FAILURE);
+	}
 
 	pthread_mutex_unlock(&cache->c_mutex_mapping[fd]);
 
@@ -158,15 +191,17 @@ int acl_close(int fd) {
 		return sys_close(fd);
 	}
 
-	struct flock lock;
-	lock.l_type = F_UNLCK;
-	lock.l_whence = SEEK_SET;
-	lock.l_start = 0;
-	lock.l_len = 0;
+	if (cache->c_mapping[fd]->cm_lower != -1 && cache->c_mapping[fd]->cm_upper != -1) {
 
-	if (fcntl(fd, F_SETLKW, &lock) == -1) {
-		perror("ERROR: could not release lock from source file!");
-		exit(EXIT_FAILURE);
+		printf("copying...\n");
+
+		// open cache file for reading
+		printf("-----> %s\n", cache->c_mapping[fd]->cm_cache);
+		int cache_file = sys_open(cache->c_mapping[fd]->cm_cache, O_RDONLY, 0);
+		if (cache_file != -1) {
+			copy_data_interval(cache_file, fd, cache->c_mapping[fd]->cm_lower, cache->c_mapping[fd]->cm_upper - cache->c_mapping[fd]->cm_lower);
+		}
+		sys_close(cache_file);
 	}
 
 	if (cache->c_mapping[fd]->cm_file != -1) {

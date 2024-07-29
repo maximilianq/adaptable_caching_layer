@@ -10,7 +10,7 @@
 
 #include "calls.h"
 
-#define BLOCK_SIZE 131072
+#define BLOCK_SIZE 8192
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 char * data_buffer = NULL;
@@ -69,7 +69,7 @@ void copy_data(int source_file, int cache_file) {
     lseek(source_file, 0, SEEK_SET);
     lseek(cache_file, 0, SEEK_SET);
 
-    while ((bytes_read = sys_read(source_file, data_buffer, 131072)) > 0) {
+    while ((bytes_read = sys_read(source_file, data_buffer, BLOCK_SIZE)) > 0) {
         bytes_written = sys_write(cache_file, data_buffer, bytes_read);
         if (bytes_written != bytes_read) {
             perror("Error writing to destination file");
@@ -82,12 +82,12 @@ void copy_file(const char * source_path, const char * cache_path) {
 
     int source_file, cache_file;
 
-    if ((source_file = sys_open(source_path, O_RDONLY, 0)) == -1) {
+    if ((source_file = sys_open(source_path, O_RDONLY | O_DIRECT, 0)) == -1) {
         perror("Error opening source file");
         exit(EXIT_FAILURE);
     }
 
-    if ((cache_file = sys_open(cache_path, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU)) == -1) {
+    if ((cache_file = sys_open(cache_path, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT, S_IRWXU)) == -1) {
         perror("Error opening destination file");
         exit(EXIT_FAILURE);
     }

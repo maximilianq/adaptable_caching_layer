@@ -2,26 +2,22 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <limits.h>
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/xattr.h>
 #include <sys/stat.h>
 
-#define MIN_WAIT_TIME 50
-#define MAX_WAIT_TIME 100
+#include "../library/constants.h"
+
+#define MIN_WAIT_TIME 1000
+#define MAX_WAIT_TIME 2000
 
 // Ensure minimum read size and alignment to 4096 bytes
 #define ALIGNMENT 4096
 #define MIN_READ_SIZE 4096
 #define MAX_READ_SIZE 262144
-
-//#define SOURCE_PATH "/mnt/nfs4"
-#define SOURCE_PATH "/media/quaeck/storage"
-//#define SOURCE_PATH "/home/quaeck/CLionProjects/ld-preload-benchmark/storage"
 
 void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned long * total_waiting) {
 
@@ -35,10 +31,8 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
 
     for (int i = 0; i < iterations; i++) {
 
-        // Seed the random number generator
-        srand(time(NULL));
-
         // get file path of a random file
+        //index = i / (iterations / files);
         index = rand() % files;
         sprintf(path, "%s/folder%d/subfolder%d/file%d.txt", SOURCE_PATH, (index / (25 * 25)) % 25, (index / 25) % 25, index % 25);
 
@@ -88,9 +82,9 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
         *total_bytes += bytes_read;
 
         // wait a ranfom amount of micro seconds
-        waiting = MIN_WAIT_TIME + (rand() % (MAX_WAIT_TIME - MIN_WAIT_TIME));
-        usleep(waiting);
-        *total_waiting += waiting;
+        //waiting = MIN_WAIT_TIME + (rand() % (MAX_WAIT_TIME - MIN_WAIT_TIME));
+        //usleep(waiting);
+        //*total_waiting += waiting;
 
         // Clean up
         free(buffer);
@@ -108,8 +102,8 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
 
 int main() {
 
-    int files = 6250;
-    int iterations = 31250;
+    int files = 50;
+    int iterations = 1000;
 
     unsigned long total_bytes, total_waiting;
 

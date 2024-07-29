@@ -5,11 +5,11 @@ directory=/media/quaeck/storage/benchmark
 direct=1
 
 [random-read]
-rw=read
-runtime=60
-nrfiles=100
+rw=randread
+runtime=240
+nrfiles=25
 numjobs=1
-filesize=10M
+filesize=1M
 bsrange=1k-8k
 file_service_type=random
 time_based=1
