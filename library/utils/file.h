@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-void copy_data_interval(int source, int target, off_t offset, size_t size);
+void copy_file_interval(char * source, char * target, ssize_t start, ssize_t end);
 
 void copy_data(int source_file, int cache_file);
 

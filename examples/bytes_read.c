@@ -11,6 +11,8 @@
 
 #include "../library/constants.h"
 
+#include "../library/external/acl.h"
+
 #define MIN_WAIT_TIME 1000
 #define MAX_WAIT_TIME 2000
 
@@ -21,7 +23,8 @@
 
 void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned long * total_waiting) {
 
-    int file, index, waiting;
+
+    int file, index;
     char path[PATH_MAX];
 
     *total_waiting = 0;
@@ -36,9 +39,12 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
         index = rand() % files;
         sprintf(path, "%s/folder%d/subfolder%d/file%d.txt", SOURCE_PATH, (index / (25 * 25)) % 25, (index / 25) % 25, index % 25);
 
+        if (rand() % 100 == 0)
+            ladvise(path, 1);
+
         file = open(path, O_RDONLY | O_DIRECT);
         if (file == -1) {
-            perror("Error opening file\n");
+            perror("ERROR: could not open test file!");
             exit(EXIT_FAILURE);
         }
 
@@ -79,6 +85,7 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
             perror("Error reading file\n");
             exit(EXIT_FAILURE);
         }
+
         *total_bytes += bytes_read;
 
         // wait a ranfom amount of micro seconds
@@ -102,8 +109,8 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
 
 int main() {
 
-    int files = 50;
-    int iterations = 1000;
+    int files = 625;
+    int iterations = 62500;
 
     unsigned long total_bytes, total_waiting;
 

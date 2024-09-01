@@ -8,7 +8,7 @@
 #include <ctype.h>
 #include <linux/limits.h>
 
-#include "constants.h"
+#include "../constants.h"
 
 char * get_full_path(const char * input, char * output, size_t size) {
 

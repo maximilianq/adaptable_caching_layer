@@ -21,7 +21,7 @@
 
 void benchmark(int files, int iterations, char * buffer, unsigned long * total_bytes, unsigned long * total_waiting) {
 
-    int file, index, waiting;
+    int file, index;
     char path[PATH_MAX];
 
     *total_waiting = 0;
@@ -74,6 +74,8 @@ void benchmark(int files, int iterations, char * buffer, unsigned long * total_b
         }
         *total_bytes += bytes_write;
 
+        fsync(file);
+
         // wait a ranfom amount of micro seconds
         //waiting = MIN_WAIT_TIME + (rand() % (MAX_WAIT_TIME - MIN_WAIT_TIME));
         //usleep(waiting);
@@ -82,6 +84,7 @@ void benchmark(int files, int iterations, char * buffer, unsigned long * total_b
         // Clean up
         close(file);
 
+        /*
         if (i != 0) {
             printf("\033[F");
             printf("\033[K");
@@ -89,6 +92,7 @@ void benchmark(int files, int iterations, char * buffer, unsigned long * total_b
         }
 
         printf("completed:      %06d/%06d\n", i+1, iterations);
+        */
     }
 }
 
@@ -112,7 +116,7 @@ int main() {
 
     buffer[MAX_READ_SIZE - 1] = '\0';
 
-    int files = 50;
+    int files = 25;
     int iterations = 1000;
 
     unsigned long total_bytes, total_waiting;

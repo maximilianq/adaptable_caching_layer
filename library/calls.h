@@ -11,4 +11,6 @@ int sys_read(int fd, void * buffer, size_t size);
 
 int sys_write(int fd, const void * buffer, size_t size);
 
+int sys_sync(int fd);
+
 #endif

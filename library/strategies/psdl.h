@@ -1,9 +1,9 @@
 #ifndef FSDL_H
 #define FSDL_H
 
-#include "../cache.h"
+#include "../memory.h"
 
-void process_psdl(cache_t * cache, char * path);
+void process_psdl(memory_t * memory, char * path);
 
 void * handle_psdl(void * data);
 

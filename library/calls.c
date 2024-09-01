@@ -9,6 +9,7 @@ int (* __open)(const char *, int, ...) = NULL;
 int (* __close)(int) = NULL;
 int (* __read)(int, void *, size_t) = NULL;
 int (* __write)(int, const void *, size_t) = NULL;
+int (* __sync)(int) = NULL;
 
 int sys_open(const char * path, int flags, mode_t mode) {
     if (__open == NULL) __open = dlsym(RTLD_NEXT, "open");
@@ -28,4 +29,9 @@ int sys_read(int fd, void * buffer, size_t size) {
 int sys_write(int fd, const void * buffer, size_t size) {
     if (__write == NULL) __write = dlsym(RTLD_NEXT, "write");
     return __write(fd, buffer, size);
+}
+
+int sys_sync(int fd) {
+    if (__sync == NULL) __sync = dlsym(RTLD_NEXT, "fsync");
+    return __sync(fd);
 }
