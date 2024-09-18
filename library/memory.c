@@ -47,9 +47,9 @@ void removed_cache(cache_entry_t * entry, void * data) {
 
             pthread_mutex_lock(&memory->m_mapping_entries[i]->me_entry->ce_mutex);
 
-            // if file in cache has been modified write changes to disk
-            if (memory->m_mapping_entries[i]->me_lower != -1 && memory->m_mapping_entries[i]->me_upper != -1) {
-                copy_file_interval(memory->m_mapping_entries[i]->me_entry->ce_cache, memory->m_mapping_entries[i]->me_entry->ce_source, memory->m_mapping_entries[i]->me_lower, memory->m_mapping_entries[i]->me_upper);
+            ssize_t upper, lower;
+            while (pop_extent(&memory->m_mapping_entries[i]->me_entry->ce_extents, &lower, &upper) != -1) {
+                copy_file_interval(memory->m_mapping_entries[i]->me_entry->ce_cache, memory->m_mapping_entries[i]->me_entry->ce_source, lower, upper);
             }
 
             pthread_mutex_unlock(&memory->m_mapping_entries[i]->me_entry->ce_mutex);

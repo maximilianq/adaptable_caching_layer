@@ -10,8 +10,6 @@ struct mapping_entry {
     int me_descriptor;
     int me_flags;
     mode_t me_mode;
-    ssize_t me_lower;
-    ssize_t me_upper;
 };
 
 typedef struct mapping_entry mapping_entry_t;

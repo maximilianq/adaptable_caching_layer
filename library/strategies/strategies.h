@@ -16,6 +16,9 @@
     #elif defined(FETCH_STRATEGY_PRDL)
         #include "prdl.h"
         #define handle_lookahead handle_prdl
+    #elif defined(FETCH_STRATEGY_MCFL)
+        #include "mcfl.h"
+        #define handle_lookahead handle_mcfl
     #endif
 
 #endif //STRATEGIES_H

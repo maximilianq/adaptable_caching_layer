@@ -41,69 +41,53 @@ void acl_init() {
 
 int acl_advise(const char * path, int flags) {
 
-	if (global_memory == NULL)
-		acl_init();
-
+	// expand relative path to full path
 	char * source_path = malloc(PATH_MAX * sizeof(char));
 	get_full_path(path, source_path, PATH_MAX);
 
 	// enqueuing the advised path in priority queue
 	enqueue(&global_memory->m_queue_high, source_path);
 
-	return 1;
+	return 0;
 }
 
 int acl_open(const char * path, int flags, mode_t mode) {
 
-	//printf("[OPEN] %s %d %d\n", path, flags, mode);
+	int source_file, cache_file = -1;
+	cache_entry_t * cache_entry;
 
-	if (global_memory == NULL)
-		acl_init();
-
-	// expand path to full path
-	char * source_path = malloc(PATH_MAX * sizeof(char));
-	get_full_path(path, source_path, PATH_MAX);
-
-	// open source file
-	int source_file = sys_open(source_path, flags, mode);
-	if (source_file == -1) {
+	// open source file and return prematurely if file could not be opened
+	if ((source_file = sys_open(path, flags, mode)) == -1) {
 		return source_file;
 	}
 
-	// check if file is in cache
-	cache_entry_t * entry = retrieve_cache(&global_memory->m_cache, source_path);
+	// check if file is already in cache and if yes open cache file
+	if ((cache_entry = retrieve_cache(&global_memory->m_cache, (char *) path)) != NULL) {
+		if ((cache_file = sys_open(cache_entry->ce_cache, flags, mode)) == -1) {
+			perror("ERROR: could not open cache file!\n");
+			exit(EXIT_FAILURE);
+		}
+	}
 
+	// lock mapping mutex for source file descriptor
 	pthread_mutex_lock(&global_memory->m_mapping_mutex[source_file]);
 
-	// add data to mapping information
+	// allocate memory and add data to mapping information
 	global_memory->m_mapping_entries[source_file] = malloc(sizeof(mapping_entry_t));
-	strcpy(global_memory->m_mapping_entries[source_file]->me_path, source_path);
-	global_memory->m_mapping_entries[source_file]->me_entry = entry;
-	global_memory->m_mapping_entries[source_file]->me_descriptor = -1;
+	strcpy(global_memory->m_mapping_entries[source_file]->me_path, path);
+	global_memory->m_mapping_entries[source_file]->me_entry = cache_entry;
+	global_memory->m_mapping_entries[source_file]->me_descriptor = cache_file;
 	global_memory->m_mapping_entries[source_file]->me_flags = flags;
 	global_memory->m_mapping_entries[source_file]->me_mode = mode;
-	global_memory->m_mapping_entries[source_file]->me_lower = -1;
-	global_memory->m_mapping_entries[source_file]->me_upper = -1;
 
-	if (entry == NULL) {
-		pthread_mutex_unlock(&global_memory->m_mapping_mutex[source_file]);
-		return source_file;
-	}
-
-	int cache_file = sys_open(entry->ce_cache, flags, mode);
-	global_memory->m_mapping_entries[source_file]->me_descriptor = cache_file;
-
+	// release mutex of mapping
 	pthread_mutex_unlock(&global_memory->m_mapping_mutex[source_file]);
 
+	// return source file filedescriptor
     return source_file;
 }
 
 ssize_t acl_read(int fd, void * buffer, size_t count) {
-
-	//printf("[READ] %d %lu\n", fd, count);
-
-	if (global_memory == NULL)
-		acl_init();
 
 	pthread_mutex_lock(&global_memory->m_mapping_mutex[fd]);
 
@@ -159,11 +143,6 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 }
 
 ssize_t acl_write(int fd, const void * buffer, size_t count) {
-
-	//printf("[WRITE] %d %lu\n", fd, count);
-
-	if (global_memory == NULL)
-		acl_init();
 
 	pthread_mutex_lock(&global_memory->m_mapping_mutex[fd]);
 
@@ -225,9 +204,6 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 
 int acl_close(int fd) {
 
-	if (global_memory == NULL)
-		acl_init();
-
 	pthread_mutex_lock(&global_memory->m_mapping_mutex[fd]);
 
 	if (global_memory->m_mapping_entries[fd] != NULL && global_memory->m_mapping_entries[fd]->me_entry != NULL) {
@@ -253,11 +229,6 @@ int acl_close(int fd) {
 }
 
 int acl_sync(int fd) {
-
-	printf("[SYNC] %d\n", fd);
-
-	if (global_memory == NULL)
-		acl_init();
 
 	pthread_mutex_lock(&global_memory->m_mapping_mutex[fd]);
 
