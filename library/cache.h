@@ -45,6 +45,8 @@ int insert_cache(cache_t * cache, char * path);
 
 cache_entry_t * retrieve_cache(cache_t * cache, char * path);
 
-int remove_cache(cache_t * cache);
+int remove_cache(cache_t * cache, char * path);
+
+int pop_cache(cache_t * cache);
 
 #endif

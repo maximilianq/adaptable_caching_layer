@@ -1,9 +1,9 @@
 #ifndef FSDL_H
 #define FSDL_H
 
-#include "../memory.h"
+#include "../state.h"
 
-void process_prdl(memory_t * memory, char * path);
+void process_prdl(state_t * state, char * path);
 
 void * handle_prdl(void * data);
 

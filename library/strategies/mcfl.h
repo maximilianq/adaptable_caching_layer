@@ -1,10 +1,10 @@
 #ifndef MCFL_H
 #define MCFL_H
 
-#include "../memory.h"
+#include "../state.h"
 #include "../structures/markov.h"
 
-void process_mcfl(memory_t * memory, char * path, markov_t * markov);
+void process_mcfl(state_t * state, char * path, markov_t * markov);
 
 void * handle_mcfl(void * data);
 

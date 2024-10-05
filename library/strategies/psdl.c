@@ -4,14 +4,14 @@
 #include <string.h>
 
 #include "../cache.h"
-#include "../memory.h"
+#include "../state.h"
 
 #include "../utils/directory.h"
 #include "../utils/path.h"
 
 #include "../structures/queue.h"
 
-void process_psdl(memory_t * memory, char * source_path) {
+void process_psdl(state_t * state, char * source_path) {
 
     // retrieve parent path of current file
     char parent_path[PATH_MAX];
@@ -37,7 +37,7 @@ void process_psdl(memory_t * memory, char * source_path) {
         char * path = malloc(PATH_MAX * sizeof(char));
         strcpy(path, entries_buffer[i]);
 
-        enqueue(&memory->m_queue_low, path);
+        enqueue(&state->m_queue_low, path);
 
         free(entries_buffer[i]);
     }
@@ -47,22 +47,20 @@ void process_psdl(memory_t * memory, char * source_path) {
 
 void * handle_psdl(void * data) {
 
-    printf("This is a test!\n");
-
-    memory_t * memory = data;
+    state_t * state = data;
 
     char * value;
     while(1) {
 
-        if ((value = dequeue(&memory->m_queue_high)) != NULL || (value = dequeue(&memory->m_queue_low)) != NULL) {
-            insert_cache(&memory->m_cache, value);
+        if ((value = dequeue(&state->m_queue_high)) != NULL || (value = dequeue(&state->m_queue_low)) != NULL) {
+            insert_cache(&state->m_cache, value);
             free(value);
             continue;
         }
 
-        value = dequeue(&memory->m_queue_prefetch);
+        value = dequeue(&state->m_queue_prefetch);
         if (value != NULL) {
-            process_psdl(memory, value);
+            process_psdl(state, value);
             free(value);
         }
     }

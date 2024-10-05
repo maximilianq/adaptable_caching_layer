@@ -3,15 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../cache.h"
-#include "../state.h"
-
-#include "../utils/directory.h"
 #include "../utils/path.h"
+#include "../utils/directory.h"
 
-#include "../structures/queue.h"
-
-void process_fsdl(state_t * state, char * source_path) {
+void process_fsdl(prefetch_t * prefetch, char * source_path) {
 
     // retrieve parent path of current file
     char parent_path[PATH_MAX];
@@ -31,31 +26,10 @@ void process_fsdl(state_t * state, char * source_path) {
         char * path = malloc(PATH_MAX * sizeof(char));
         strcpy(path, entries_buffer[i]);
 
-        enqueue(&state->m_queue_low, path);
+        enqueue(&prefetch->p_low, path);
 
         free(entries_buffer[i]);
     }
 
     free(entries_buffer);
-}
-
-void * handle_fsdl(void * data) {
-
-    state_t * state = data;
-
-    char * value;
-    while(1) {
-
-        if ((value = dequeue(&state->m_queue_high)) != NULL || (value = dequeue(&state->m_queue_low)) != NULL) {
-            insert_cache(&state->m_cache, value);
-            free(value);
-            continue;
-        }
-
-        value = dequeue(&state->m_queue_prefetch);
-        if (value != NULL) {
-            process_fsdl(state, value);
-            free(value);
-        }
-    }
 }

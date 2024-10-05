@@ -7,6 +7,10 @@ void acl_init();
 
 int acl_advise(const char * path, int flags);
 
+void acl_prefetch(void * init, void * process, void * free);
+
+void acl_select(void * prefetch, char * path);
+
 int acl_open(const char * path, int flags, mode_t mode);
 
 ssize_t acl_read(int fd, void * buffer, size_t count);

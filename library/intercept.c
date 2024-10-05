@@ -10,10 +10,6 @@
 #include "acl.h"
 #include "utils/path.h"
 
-int ladvise(const char * path, int flags) {
-    return acl_advise(path, flags);
-}
-
 int open(const char * path, int flags, ...) {
 
     // expand relative path to full path
@@ -48,11 +44,11 @@ int close(int fd) {
     return acl_close(fd);
 }
 
-int read(int fd, void * buffer, size_t size) {
+ssize_t read(int fd, void * buffer, size_t size) {
     return acl_read(fd, buffer, size);
 }
 
-int write(int fd, const void * buffer, size_t size) {
+ssize_t write(int fd, const void * buffer, size_t size) {
     return acl_write(fd, buffer, size);
 }
 

@@ -21,6 +21,8 @@ void insert_internal_priority(internal_priority_t * priority, unsigned long scor
 
 void update_internal_priority(internal_priority_t * priority, unsigned long score, void * data);
 
-void * remove_internal_priority(internal_priority_t * priority);
+int remove_internal_priority(internal_priority_t * priority, void * data);
+
+void * pop_internal_priority(internal_priority_t * priority);
 
 #endif

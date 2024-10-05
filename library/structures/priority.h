@@ -18,6 +18,8 @@ void insert_priority(priority_t * priority, unsigned long score, void * data);
 
 void update_priority(priority_t * priority, unsigned long score, void * data);
 
-void * remove_priority(priority_t * priority);
+int remove_priority(priority_t * priority, void * data);
+
+void * pop_priority(priority_t * priority);
 
 #endif

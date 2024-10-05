@@ -64,10 +64,28 @@ void update_internal_priority(internal_priority_t * priority, unsigned long scor
     *index = update_internal_heap(&priority->p_heap, *index, score);
 }
 
-void * remove_internal_priority(internal_priority_t * priority) {
+int remove_internal_priority(internal_priority_t * priority, void * data) {
+
+    // remove item from lookup and return with -1 if item could not be found
+    int * index = remove_internal_lookup(&priority->p_lookup, data);
+    if (index == NULL) {
+        return -1;
+    }
+
+    // remove item from heap and free index
+    remove_internal_heap(&priority->p_heap, *index);
+    free(index);
+
+    return 0;
+}
+
+void * pop_internal_priority(internal_priority_t * priority) {
 
     // remove item from heap
     void * data = remove_internal_heap(&priority->p_heap, 0);
+    if (data == NULL) {
+        return NULL;
+    }
 
     // remove entry from lookup and free index
     int * index = remove_internal_lookup(&priority->p_lookup, data);

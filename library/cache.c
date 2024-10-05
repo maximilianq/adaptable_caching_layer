@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include "structures/heap.h"
 #include "utils/file.h"
 #include "utils/path.h"
 
@@ -95,7 +96,7 @@ int insert_cache(cache_t * cache, char * path) {
 
     // remove entries until size is small enough to insert entry
     while (cache->c_size + source_stat.st_size > cache->c_capacity) {
-        remove_cache(cache);
+        pop_cache(cache);
     }
 
     cache_entry_t * entry = malloc(sizeof(cache_entry_t));
@@ -145,11 +146,43 @@ cache_entry_t * retrieve_cache(cache_t * cache, char * path) {
     return entry;
 }
 
-int remove_cache(cache_t * cache) {
+int remove_cache(cache_t * cache, char * path) {
+
+    cache_entry_t * entry = remove_lookup(&cache->c_lookup, path);
+    if (entry == NULL) {
+        return -1;
+    }
+
+    remove_priority(&cache->c_priority, entry);
+
+    // adapt size of cache
+    cache->c_size = cache->c_size - entry->ce_size;
+
+    if (cache->c_removed != NULL) cache->c_removed(entry, cache->c_removed_args);
+
+    pthread_mutex_lock(&entry->ce_mutex);
+
+    if (unlink(entry->ce_cache) == -1) {
+        perror("ERROR: could not delete cached file!");
+        exit(EXIT_FAILURE);
+    }
+
+    pthread_mutex_unlock(&entry->ce_mutex);
+
+    // clean up storage occupied by removed entry
+    free_extent(&entry->ce_extents);
+    pthread_mutex_destroy(&entry->ce_mutex);
+
+    free(entry);
+
+    return 0;
+}
+
+int pop_cache(cache_t * cache) {
 
     // retrieve entry to be deleted from priority queue
     cache_entry_t * entry;
-    if ((entry = remove_priority(&cache->c_priority)) == NULL) {
+    if ((entry = pop_priority(&cache->c_priority)) == NULL) {
         return -1;
     }
 

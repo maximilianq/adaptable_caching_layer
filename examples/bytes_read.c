@@ -5,11 +5,13 @@
 #include <limits.h>
 #include <time.h>
 #include <fcntl.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include "../library/constants.h"
+#include "../library/prefetch.h"
 
 #include "../library/external/acl.h"
 
@@ -21,8 +23,20 @@
 #define MIN_READ_SIZE 4096
 #define MAX_READ_SIZE 262144
 
-void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned long * total_waiting) {
+int * generate_random_pattern(int seed, int entities, int count) {
 
+    int * pattern = malloc(count * sizeof(int));
+
+    srand(seed);
+
+    for (int i = 0; i < count; i++) {
+        pattern[i] = rand() % entities;
+    }
+
+    return pattern;
+}
+
+void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned long * total_waiting) {
 
     int file, index;
     char path[PATH_MAX];
@@ -39,8 +53,8 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
         index = rand() % files;
         sprintf(path, "%s/folder%d/subfolder%d/file%d.txt", SOURCE_PATH, (index / (25 * 25)) % 25, (index / 25) % 25, index % 25);
 
-        if (rand() % 100 == 0)
-            ladvise(path, 1);
+        //if (rand() % 10 == 0)
+        //    acl_hint(path, 1, 1);
 
         file = open(path, O_RDONLY | O_DIRECT);
         if (file == -1) {
@@ -88,20 +102,9 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
 
         *total_bytes += bytes_read;
 
-        // wait a ranfom amount of micro seconds
-        //waiting = MIN_WAIT_TIME + (rand() % (MAX_WAIT_TIME - MIN_WAIT_TIME));
-        //usleep(waiting);
-        //*total_waiting += waiting;
-
         // Clean up
         free(buffer);
         close(file);
-
-        if (i != 0) {
-            printf("\033[F");
-            printf("\033[K");
-            fflush(stdout);
-        }
 
         printf("completed:      %06d/%06d\n", i+1, iterations);
     }
@@ -110,7 +113,7 @@ void benchmark(int files, int iterations, unsigned long * total_bytes, unsigned 
 int main() {
 
     int files = 625;
-    int iterations = 62500;
+    int iterations = 6250;
 
     unsigned long total_bytes, total_waiting;
 

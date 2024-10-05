@@ -28,11 +28,22 @@ void update_priority(priority_t * priority, unsigned long score, void * data) {
     pthread_mutex_unlock(&priority->p_mutex);
 }
 
-void * remove_priority(priority_t * priority) {
+int remove_priority(priority_t * priority, void * data) {
 
     pthread_mutex_lock(&priority->p_mutex);
 
-    void * result = remove_internal_priority(&priority->p_internal);
+    int result = remove_internal_priority(&priority->p_internal, data);
+
+    pthread_mutex_unlock(&priority->p_mutex);
+
+    return result;
+}
+
+void * pop_priority(priority_t * priority) {
+
+    pthread_mutex_lock(&priority->p_mutex);
+
+    void * result = pop_internal_priority(&priority->p_internal);
 
     pthread_mutex_unlock(&priority->p_mutex);
 
