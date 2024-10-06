@@ -9,6 +9,9 @@ include_directories(${CMAKE_SOURCE_DIR}/library/include)
 # Set the output directories for external library
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/external)
 
+set(SOURCE_PATH "/mnt/nfs4")
+set(CACHE_PATH "/var/cache/iocache")
+
 # Create the external library libacl.so
 add_library(acl_external SHARED ${CMAKE_SOURCE_DIR}/library/external/acl.c)
 target_link_libraries(acl_external dl)
@@ -48,6 +51,8 @@ add_library(acl SHARED
         library/cache/lfu.c
 )
 
+target_compile_definitions(acl PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
+
 target_link_libraries(acl dl pthread)
 target_link_options(acl PRIVATE "-Wl,-init,acl_init")
 set_target_properties(acl PROPERTIES OUTPUT_NAME "acl")
@@ -62,7 +67,9 @@ endif()
 
 # Create the executables
 add_executable(bytes_read ${CMAKE_SOURCE_DIR}/examples/bytes_read.c)
+target_compile_definitions(bytes_read PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
 target_link_libraries(bytes_read /lib/libacl.so)
 
 add_executable(bytes_write ${CMAKE_SOURCE_DIR}/examples/bytes_write.c)
+target_compile_definitions(bytes_write PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
 target_link_libraries(bytes_write /lib/libacl.so)
