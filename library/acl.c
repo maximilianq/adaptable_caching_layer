@@ -16,7 +16,6 @@
 #include "mapping.h"
 #include "prefetch.h"
 #include "cache.h"
-#include "constants.h"
 
 #include "utils/file.h"
 #include "utils/path.h"

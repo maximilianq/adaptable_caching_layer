@@ -10,7 +10,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "../library/constants.h"
 #include "../library/prefetch.h"
 
 #include "../library/external/acl.h"
