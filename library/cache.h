@@ -37,7 +37,7 @@ typedef struct cache {
     pthread_mutex_t c_mutex;
 } cache_t;
 
-void init_cache(cache_t * cache, ssize_t capacity, inserted_t inserted, void * inserted_args, removed_t removed, void * removed_args);
+void init_cache(cache_t * cache, ssize_t capacity, inserted_t inserted, void * inserted_args, removed_t removed, void * removed_args, insert_t insert, update_t update);
 
 void free_cache(cache_t * cache);
 

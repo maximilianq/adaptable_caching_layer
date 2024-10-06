@@ -43,6 +43,9 @@ add_library(acl SHARED
         ${CMAKE_SOURCE_DIR}/library/prefetch.c
         ${CMAKE_SOURCE_DIR}/library/mapping.c
         library/prefetch/mcfl.c
+        library/cache/fifo.c
+        library/cache/lru.c
+        library/cache/lfu.c
 )
 
 target_link_libraries(acl dl pthread)

@@ -4,6 +4,9 @@
 typedef int (* compare_t)(unsigned long first, unsigned long second);
 typedef void (* listen_t)(int index, unsigned long score, void * data, void * args);
 
+typedef unsigned long (* insert_t)();
+typedef unsigned long (* update_t)(unsigned long prev);
+
 struct heap_entry {
     unsigned long he_score;
     void * he_data;
@@ -21,11 +24,14 @@ struct internal_heap {
 
     listen_t h_listen;
     void * h_listen_args;
+
+    insert_t h_insert;
+    update_t h_update;
 };
 
 typedef struct internal_heap internal_heap_t;
 
-void init_internal_heap(internal_heap_t * heap, int capacity, compare_t compare, listen_t listen, void * listen_data);
+void init_internal_heap(internal_heap_t * heap, int capacity, compare_t compare, listen_t listen, void * listen_data, insert_t insert, update_t update);
 
 void free_internal_heap(internal_heap_t * heap);
 

@@ -24,7 +24,7 @@
 #include "structures/queue.h"
 
 #include "prefetch/fsdl.h"
-#include "prefetch/mcfl.h"
+#include "cache/lfu.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -43,7 +43,7 @@ void acl_init() {
 	mapping_init(mapping);
 
 	cache = malloc(sizeof(cache_t));
-	init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping);
+	init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lfu, update_lfu);
 
 	prefetch = malloc(sizeof(prefetch_t));
 	//prefetch_init(prefetch, init_mcfl, process_mcfl, free_mcfl);

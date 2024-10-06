@@ -13,14 +13,14 @@ int compare_max_internal_priority(unsigned long first, unsigned long second) {
     return second - first;
 }
 
-void init_internal_priority(internal_priority_t * priority, int capacity, hash_t hash, equal_t equal, int kind) {
+void init_internal_priority(internal_priority_t * priority, int capacity, hash_t hash, equal_t equal, int kind, insert_t insert, update_t update) {
 
     init_internal_lookup(&priority->p_lookup, capacity, hash, equal);
 
     if (kind == PRIO_MIN) {
-        init_internal_heap(&priority->p_heap, capacity, compare_min_internal_priority, listen_internal_priority, &priority->p_lookup);
+        init_internal_heap(&priority->p_heap, capacity, compare_min_internal_priority, listen_internal_priority, &priority->p_lookup, insert, update);
     } else {
-        init_internal_heap(&priority->p_heap, capacity, compare_max_internal_priority, listen_internal_priority, &priority->p_lookup);
+        init_internal_heap(&priority->p_heap, capacity, compare_max_internal_priority, listen_internal_priority, &priority->p_lookup, insert, update);
     }
 }
 

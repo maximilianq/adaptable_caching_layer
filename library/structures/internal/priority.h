@@ -13,7 +13,7 @@ typedef struct internal_priority {
     pthread_mutex_t p_mutex;
 } internal_priority_t;
 
-void init_internal_priority(internal_priority_t * priority, int capacity, hash_t hash, equal_t equal, int kind);
+void init_internal_priority(internal_priority_t * priority, int capacity, hash_t hash, equal_t equal, int kind, insert_t insert, update_t update);
 
 void free_internal_priority(internal_priority_t * priority);
 

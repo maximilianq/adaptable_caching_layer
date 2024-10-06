@@ -1,7 +1,7 @@
 #include "heap.h"
 
-void init_heap(heap_t * heap, int capacity, compare_t compare, listen_t listen, void * listen_args) {
-    init_internal_heap(&heap->h_internal, capacity, compare, listen, listen_args);
+void init_heap(heap_t * heap, int capacity, compare_t compare, listen_t listen, void * listen_args, insert_t insert, update_t update) {
+    init_internal_heap(&heap->h_internal, capacity, compare, listen, listen_args, insert, update);
     pthread_mutex_init(&heap->h_mutex, NULL);
     sem_init(&heap->h_empty, 0, 0);
     sem_init(&heap->h_full, 0, capacity);

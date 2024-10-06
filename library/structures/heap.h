@@ -14,7 +14,7 @@ struct heap {
 
 typedef struct heap heap_t;
 
-void init_heap(heap_t * heap, int capacity, compare_t compare, listen_t listen, void * listen_data);
+void init_heap(heap_t * heap, int capacity, compare_t compare, listen_t listen, void * listen_data, insert_t insert, update_t update);
 
 void free_heap(heap_t * heap);
 

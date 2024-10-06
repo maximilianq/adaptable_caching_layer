@@ -1,7 +1,7 @@
 #include "priority.h"
 
-void init_priority(priority_t * priority, int capacity, hash_t hash, equal_t equal, int kind) {
-    init_internal_priority(&priority->p_internal, capacity, hash, equal, kind);
+void init_priority(priority_t * priority, int capacity, hash_t hash, equal_t equal, int kind, insert_t insert, update_t update) {
+    init_internal_priority(&priority->p_internal, capacity, hash, equal, kind, insert, update);
     pthread_mutex_init(&priority->p_mutex, NULL);
 }
 

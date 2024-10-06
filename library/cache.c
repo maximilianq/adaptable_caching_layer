@@ -46,13 +46,13 @@ int equal_cache_entry(void * first, void * second) {
     return strcmp(((cache_entry_t *) first)->ce_source, ((cache_entry_t *) second)->ce_source) == 0;
 }
 
-void init_cache(cache_t * cache, ssize_t capacity, inserted_t inserted, void * inserted_args, removed_t removed, void * removed_args) {
+void init_cache(cache_t * cache, ssize_t capacity, inserted_t inserted, void * inserted_args, removed_t removed, void * removed_args, insert_t insert, update_t update) {
 
     cache->c_capacity = capacity;
     cache->c_size = 0;
 
     init_lookup(&cache->c_lookup, 4096, hash_string, equal_string);
-    init_priority(&cache->c_priority, 4096, hash_cache_entry, equal_cache_entry, PRIO_MIN);
+    init_priority(&cache->c_priority, 4096, hash_cache_entry, equal_cache_entry, PRIO_MIN, insert, update);
 
     cache->c_inserted = inserted;
     cache->c_inserted_args = inserted_args;

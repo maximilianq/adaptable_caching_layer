@@ -58,7 +58,7 @@ int downheap(internal_heap_t * heap, int index) {
     return index;
 }
 
-void init_internal_heap(internal_heap_t * heap, int capacity, compare_t compare, listen_t listen, void * listen_args) {
+void init_internal_heap(internal_heap_t * heap, int capacity, compare_t compare, listen_t listen, void * listen_args, insert_t insert, update_t update) {
 
     // allocate memory for heap entries based on given capacity
     heap->h_entries = malloc(capacity * sizeof(heap_entry_t *));
@@ -73,6 +73,9 @@ void init_internal_heap(internal_heap_t * heap, int capacity, compare_t compare,
     // deine listen function and listen args called on entry index change
     heap->h_listen = listen;
     heap->h_listen_args = listen_args;
+
+    heap->h_insert = insert;
+    heap->h_update = update;
 }
 
 void free_internal_heap(internal_heap_t * heap) {
@@ -82,6 +85,11 @@ void free_internal_heap(internal_heap_t * heap) {
 }
 
 int insert_internal_heap(internal_heap_t * heap, unsigned long score, void * data) {
+
+    // calculate new score if required
+    if (heap->h_update != NULL) {
+        score = heap->h_insert();
+    }
 
     // allocate and initialize new heap entry
     heap_entry_t * entry = malloc(sizeof(heap_entry_t));
@@ -137,6 +145,12 @@ int update_internal_heap(internal_heap_t * heap, int index, unsigned long score)
 
     // if score is increased check all below
     if (index == 0 || heap->h_compare(heap->h_entries[index]->he_score, score) < 0) {
+
+        // calculate new score if required
+        unsigned long prev = heap->h_entries[index]->he_score;
+        if (heap->h_update != NULL) {
+            score = heap->h_update(prev);
+        }
 
         // update score and update entries below
         heap->h_entries[index]->he_score = score;

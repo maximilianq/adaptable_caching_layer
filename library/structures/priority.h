@@ -10,7 +10,7 @@ typedef struct priority_queue {
     pthread_mutex_t p_mutex;
 } priority_t;
 
-void init_priority(priority_t * priority, int capacity, hash_t hash, equal_t equal, int kind);
+void init_priority(priority_t * priority, int capacity, hash_t hash, equal_t equal, int kind, insert_t insert, update_t update);
 
 void free_priority(priority_t * priority);
 
