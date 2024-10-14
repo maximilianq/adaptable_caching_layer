@@ -9,7 +9,8 @@ include_directories(${CMAKE_SOURCE_DIR}/library/include)
 # Set the output directories for external library
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/external)
 
-set(SOURCE_PATH "/mnt/nfs4")
+set(CACHE_SIZE 23592960)
+set(SOURCE_PATH "/home/quaeck/CLionProjects/ld-preload-benchmark/storage/mnt")
 set(CACHE_PATH "/var/cache/iocache")
 
 # Create the external library libacl.so
@@ -51,25 +52,25 @@ add_library(acl SHARED
         library/cache/lfu.c
 )
 
-target_compile_definitions(acl PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
+target_compile_definitions(acl PRIVATE CACHE_SIZE=${CACHE_SIZE} SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
 
 target_link_libraries(acl dl pthread)
 target_link_options(acl PRIVATE "-Wl,-init,acl_init")
 set_target_properties(acl PROPERTIES OUTPUT_NAME "acl")
 
-find_library(ACL_LIB NAMES acl PATHS /lib /usr/lib ${CMAKE_BINARY_DIR}/external)
+#find_library(ACL_LIB NAMES acl PATHS /lib /usr/lib ${CMAKE_BINARY_DIR}/external)
 
-if (ACL_LIB)
-    message(STATUS "Found acl library at ${ACL_LIB}")
-else()
-    message(FATAL_ERROR "acl library not found")
-endif()
+#if (ACL_LIB)
+#    message(STATUS "Found acl library at ${ACL_LIB}")
+#else()
+#    message(FATAL_ERROR "acl library not found")
+#endif()
 
 # Create the executables
-add_executable(bytes_read ${CMAKE_SOURCE_DIR}/examples/bytes_read.c)
-target_compile_definitions(bytes_read PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
-target_link_libraries(bytes_read /lib/libacl.so)
+#add_executable(bytes_read ${CMAKE_SOURCE_DIR}/examples/bytes_read.c)
+#target_compile_definitions(bytes_read PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
+#target_link_libraries(bytes_read /lib/libacl.so)
 
-add_executable(bytes_write ${CMAKE_SOURCE_DIR}/examples/bytes_write.c)
-target_compile_definitions(bytes_write PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
-target_link_libraries(bytes_write /lib/libacl.so)
+#add_executable(bytes_write ${CMAKE_SOURCE_DIR}/examples/bytes_write.c)
+#target_compile_definitions(bytes_write PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
+#target_link_libraries(bytes_write /lib/libacl.so)

@@ -9,6 +9,7 @@
 
 #include "acl.h"
 #include "utils/path.h"
+#include "calls.h"
 
 int open(const char * path, int flags, ...) {
 
@@ -22,7 +23,13 @@ int open(const char * path, int flags, ...) {
     mode_t mode = flags & O_CREAT ? va_arg(args, mode_t) : 0;
     va_end(args);
 
-    return acl_open(full_path, flags, mode);
+    // check if file is in cached directory
+    int result = is_valid(full_path);
+    if (result) {
+        return acl_open(full_path, flags, mode);
+    }
+
+    return sys_open(path, flags, mode);
 }
 
 int open64(const char * path, int flags, ...) {
@@ -37,7 +44,13 @@ int open64(const char * path, int flags, ...) {
     mode_t mode = flags & O_CREAT ? va_arg(args, mode_t) : 0;
     va_end(args);
 
-    return acl_open(full_path, flags, mode);
+    // check if file is in cached directory
+    int result = is_valid(full_path);
+    if (result) {
+        return acl_open(full_path, flags, mode);
+    }
+
+    return sys_open(path, flags, mode);
 }
 
 int close(int fd) {

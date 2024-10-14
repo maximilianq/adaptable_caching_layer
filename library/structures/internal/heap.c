@@ -87,7 +87,7 @@ void free_internal_heap(internal_heap_t * heap) {
 int insert_internal_heap(internal_heap_t * heap, unsigned long score, void * data) {
 
     // calculate new score if required
-    if (heap->h_update != NULL) {
+    if (heap->h_insert != NULL) {
         score = heap->h_insert();
     }
 
@@ -108,6 +108,10 @@ int insert_internal_heap(internal_heap_t * heap, unsigned long score, void * dat
 }
 
 void * remove_internal_heap(internal_heap_t * heap, int index) {
+
+    if (index >= heap->h_size) {
+        return NULL;
+    }
 
     // retrieve entry at specified index and save data of entry
     heap_entry_t * entry = heap->h_entries[index];

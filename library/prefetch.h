@@ -40,6 +40,8 @@ void prefetch_free(prefetch_t * prefetch);
 
 void prefetch_replace(prefetch_t * prefetch, cache_t * cache, init_t init, process_t process, free_t free);
 
+void prefetch_predict(prefetch_t * prefetch, char * path);
+
 void * prefetch_handler(void * data);
 
 #endif

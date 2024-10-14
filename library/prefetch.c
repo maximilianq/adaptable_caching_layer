@@ -1,6 +1,7 @@
 #include "prefetch.h"
 
 #include <stdio.h>
+#include <string.h>
 
 void prefetch_init(prefetch_t * prefetch, init_t init, process_t process, free_t free) {
 
@@ -41,6 +42,14 @@ void prefetch_replace(prefetch_t * prefetch, cache_t * cache, init_t init, proce
     prefetch->p_status = 1;
 
     pthread_create(&prefetch->p_thread, NULL, prefetch_handler, arguments);
+}
+
+void prefetch_predict(prefetch_t * prefetch, char * path) {
+
+    char * insert_path = malloc(PATH_MAX * sizeof(char));
+    strcpy(insert_path, path);
+
+    enqueue(&prefetch->p_low, insert_path);
 }
 
 void * prefetch_handler(void * data) {

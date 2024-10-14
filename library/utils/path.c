@@ -49,6 +49,10 @@ char * get_cache_path(const char * input, char * output, size_t size) {
     return output;
 }
 
+int is_valid(const char * path) {
+    return strncmp(SOURCE_PATH, path, strlen(SOURCE_PATH)) == 0;
+}
+
 char * get_parent_path(const char * input, char * output, size_t size) {
 
     strcpy(output, input);

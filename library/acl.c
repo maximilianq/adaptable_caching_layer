@@ -22,6 +22,7 @@
 
 #include "structures/queue.h"
 
+//#include "prefetch/mcfl.h"
 #include "prefetch/fsdl.h"
 #include "cache/lfu.h"
 
@@ -36,17 +37,26 @@ mapping_t * mapping = NULL;
 
 pthread_t thread_lookahead;
 
+pid_t thread_id;
+
 void acl_init() {
 
+	thread_id = getpid();
+
+	if (mapping != NULL)
+		mapping_free(mapping);
 	mapping = malloc(sizeof(mapping_t));
 	mapping_init(mapping);
 
+	if (cache != NULL)
+		free_cache(cache);
 	cache = malloc(sizeof(cache_t));
 	init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lfu, update_lfu);
 
+	if (prefetch != NULL)
+		prefetch_free(prefetch);
 	prefetch = malloc(sizeof(prefetch_t));
-	//prefetch_init(prefetch, init_mcfl, process_mcfl, free_mcfl);
-	prefetch_init(prefetch, NULL, process_fsdl, NULL);
+	prefetch_init(prefetch, init_fsdl, process_fsdl, free_fsdl);
 
 	arguments_t * arguments = malloc(sizeof(arguments_t));
 	arguments->a_cache = cache;
@@ -86,6 +96,10 @@ void acl_select(void * prefetch, char * path) {
 }
 
 int acl_open(const char * path, int flags, mode_t mode) {
+
+	if (thread_id != getpid()) {
+		acl_init();
+	}
 
 	int source_file, cache_file = -1;
 	cache_entry_t * cache_entry;
@@ -138,6 +152,10 @@ int acl_open(const char * path, int flags, mode_t mode) {
 }
 
 ssize_t acl_read(int fd, void * buffer, size_t count) {
+
+	if (thread_id != getpid()) {
+		acl_init();
+	}
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
@@ -193,6 +211,10 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 }
 
 ssize_t acl_write(int fd, const void * buffer, size_t count) {
+
+	if (thread_id != getpid()) {
+		acl_init();
+	}
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
@@ -254,6 +276,10 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 
 int acl_close(int fd) {
 
+	if (thread_id != getpid()) {
+		acl_init();
+	}
+
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
 	if (mapping->m_entries[fd] != NULL && mapping->m_entries[fd]->me_entry != NULL) {
@@ -279,6 +305,10 @@ int acl_close(int fd) {
 }
 
 int acl_sync(int fd) {
+
+	if (thread_id != getpid()) {
+		acl_init();
+	}
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
