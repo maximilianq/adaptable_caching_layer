@@ -1,3 +1,4 @@
+
 #define _GNU_SOURCE
 
 #include "acl.h"
@@ -37,26 +38,22 @@ mapping_t * mapping = NULL;
 
 pthread_t thread_lookahead;
 
-pid_t thread_id;
-
 void acl_init() {
 
-	thread_id = getpid();
+	if (mapping == NULL) {
+		mapping = malloc(sizeof(mapping_t));
+		mapping_init(mapping);
+	}
 
-	if (mapping != NULL)
-		mapping_free(mapping);
-	mapping = malloc(sizeof(mapping_t));
-	mapping_init(mapping);
+	if (cache == NULL) {
+		cache = malloc(sizeof(cache_t));
+		init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lfu, update_lfu);
+	}
 
-	if (cache != NULL)
-		free_cache(cache);
-	cache = malloc(sizeof(cache_t));
-	init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lfu, update_lfu);
-
-	if (prefetch != NULL)
-		prefetch_free(prefetch);
-	prefetch = malloc(sizeof(prefetch_t));
-	prefetch_init(prefetch, init_fsdl, process_fsdl, free_fsdl);
+	if (prefetch == NULL) {
+		prefetch = malloc(sizeof(prefetch_t));
+		prefetch_init(prefetch, NULL, process_fsdl, NULL);
+	}
 
 	arguments_t * arguments = malloc(sizeof(arguments_t));
 	arguments->a_cache = cache;
@@ -97,10 +94,6 @@ void acl_select(void * prefetch, char * path) {
 
 int acl_open(const char * path, int flags, mode_t mode) {
 
-	if (thread_id != getpid()) {
-		acl_init();
-	}
-
 	int source_file, cache_file = -1;
 	cache_entry_t * cache_entry;
 
@@ -131,6 +124,11 @@ int acl_open(const char * path, int flags, mode_t mode) {
 		}
 
 		pthread_mutex_unlock(&cache_entry->ce_mutex);
+	} else {
+
+                char * source_path = malloc(PATH_MAX * sizeof(char));
+                strcpy(source_path, path);
+                enqueue(&prefetch->p_history, source_path);
 	}
 
 	// lock mapping mutex for source file descriptor
@@ -153,10 +151,6 @@ int acl_open(const char * path, int flags, mode_t mode) {
 
 ssize_t acl_read(int fd, void * buffer, size_t count) {
 
-	if (thread_id != getpid()) {
-		acl_init();
-	}
-
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
 	if (mapping->m_entries[fd] == NULL) {
@@ -171,9 +165,9 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 
 		pthread_mutex_unlock(&mapping->m_mutex[fd]);
 
-		char * source_path = malloc(PATH_MAX * sizeof(char));
-		strcpy(source_path, mapping->m_entries[fd]->me_path);
-		enqueue(&prefetch->p_history, source_path);
+		//char * source_path = malloc(PATH_MAX * sizeof(char));
+		//strcpy(source_path, mapping->m_entries[fd]->me_path);
+		//enqueue(&prefetch->p_history, source_path);
 
 		ssize_t result = sys_read(fd, buffer, count);
 
@@ -196,13 +190,13 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 	}
 
 	// handle read using original read method
-    ssize_t result = sys_read(mapping->m_entries[fd]->me_descriptor, buffer, count);
+        ssize_t result = sys_read(mapping->m_entries[fd]->me_descriptor, buffer, count);
 
-	// adapt offset of original filedescriptor
 	if (lseek(fd, result, SEEK_CUR) == -1) {
 		perror("ERROR: could not set offset of source file!");
 		exit(EXIT_FAILURE);
 	}
+
 
 	pthread_mutex_unlock(&mapping->m_entries[fd]->me_entry->ce_mutex);
 	pthread_mutex_unlock(&mapping->m_mutex[fd]);
@@ -212,15 +206,16 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 
 ssize_t acl_write(int fd, const void * buffer, size_t count) {
 
-	if (thread_id != getpid()) {
-		acl_init();
-	}
+	printf("<write>\n");
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
 	if (mapping->m_entries[fd] == NULL) {
 		pthread_mutex_unlock(&mapping->m_mutex[fd]);
 		ssize_t result = sys_write(fd, buffer, count);
+
+		printf("</write>\n");
+
 		return result;
 	}
 
@@ -228,11 +223,14 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 
 		pthread_mutex_unlock(&mapping->m_mutex[fd]);
 
-		char * source_path = malloc(PATH_MAX * sizeof(char));
-		strcpy(source_path, mapping->m_entries[fd]->me_path);
-		enqueue(&prefetch->p_history, source_path);
+		//char * source_path = malloc(PATH_MAX * sizeof(char));
+		//strcpy(source_path, mapping->m_entries[fd]->me_path);
+		//enqueue(&prefetch->p_history, source_path);
 
 		ssize_t result = sys_write(fd, buffer, count);
+
+		printf("</write>\n");
+
 
 		return result;
 	}
@@ -271,14 +269,14 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 	pthread_mutex_unlock(&mapping->m_entries[fd]->me_entry->ce_mutex);
 	pthread_mutex_unlock(&mapping->m_mutex[fd]);
 
+	printf("</write>\n");
+
 	return result;
 }
 
 int acl_close(int fd) {
 
-	if (thread_id != getpid()) {
-		acl_init();
-	}
+        printf("<close>\n");
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
@@ -295,20 +293,23 @@ int acl_close(int fd) {
 
 		pthread_mutex_unlock(&mapping->m_entries[fd]->me_entry->ce_mutex);
 
-		free(mapping->m_entries[fd]);
-		mapping->m_entries[fd] = NULL;
+	}
+
+	if (mapping->m_entries[fd] != NULL) {
+	   	free(mapping->m_entries[fd]);
+                mapping->m_entries[fd] = NULL;
 	}
 
 	pthread_mutex_unlock(&mapping->m_mutex[fd]);
+
+    printf("</close>\n");
 
     return sys_close(fd);
 }
 
 int acl_sync(int fd) {
 
-	if (thread_id != getpid()) {
-		acl_init();
-	}
+	printf("<sync>\n");
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
@@ -326,6 +327,8 @@ int acl_sync(int fd) {
 	}
 
 	pthread_mutex_unlock(&mapping->m_mutex[fd]);
+
+	printf("</sync>\n");
 
 	return sys_sync(fd);
 }

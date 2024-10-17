@@ -2,13 +2,14 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 void prefetch_init(prefetch_t * prefetch, init_t init, process_t process, free_t free) {
 
-    init_queue(&prefetch->p_history, 1024);
+    init_queue(&prefetch->p_history, 64768);
 
     init_queue(&prefetch->p_high, 1024);
-    init_queue(&prefetch->p_low, 1024);
+    init_queue(&prefetch->p_low, 64768);
 
     prefetch->p_init = init;
     prefetch->p_process = process;
@@ -53,7 +54,7 @@ void prefetch_predict(prefetch_t * prefetch, char * path) {
 }
 
 void * prefetch_handler(void * data) {
-
+   
     // retrieve arguments from struct
     prefetch_t * prefetch = ((arguments_t *) data)->a_prefetch;
     cache_t * cache = ((arguments_t *) data)->a_cache;

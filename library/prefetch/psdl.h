@@ -3,6 +3,6 @@
 
 #include "../prefetch.h"
 
-void process_fsdl(prefetch_t * prefetch, char * source_path);
+void process_psdl(prefetch_t * prefetch, char * source_path);
 
 #endif

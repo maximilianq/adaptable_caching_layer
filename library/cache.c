@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include "structures/heap.h"
 #include "utils/file.h"
@@ -120,7 +121,30 @@ int insert_cache(cache_t * cache, char * path) {
 
     pthread_mutex_unlock(&cache->c_mutex);
 
-    copy_file(entry->ce_source, entry->ce_cache);
+    struct stat cache_stat;
+    if (lstat(entry->ce_cache, &cache_stat) == -1) {
+
+        if (errno != ENOENT) {
+            printf("ERROR: could not stat cache file");
+            exit(EXIT_FAILURE);
+        }
+
+        copy_file(entry->ce_source, entry->ce_cache);
+
+        //printf("Cached file %s (%d)\n", entry->ce_source, getpid());
+
+    } else {   
+        if (cache_stat.st_size != source_stat.st_size) {
+            
+            copy_file(entry->ce_source, entry->ce_cache);
+
+            //printf("Cached file %s (%d)\n", entry->ce_source, getpid());
+        } else {
+            //printf("Cached file %s already in cache (%d)\n", entry->ce_source, getpid());
+	}
+    }
+
+    //copy_file(entry->ce_source, entry->ce_cache);
 
     pthread_mutex_unlock(&entry->ce_mutex);
 

@@ -4,12 +4,14 @@
 
 #include <dlfcn.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int (* __open)(const char *, int, ...) = NULL;
 int (* __close)(int) = NULL;
 int (* __read)(int, void *, size_t) = NULL;
 int (* __write)(int, const void *, size_t) = NULL;
 int (* __sync)(int) = NULL;
+pid_t (* __fork)() = NULL;
 
 int sys_open(const char * path, int flags, mode_t mode) {
     if (__open == NULL) __open = dlsym(RTLD_NEXT, "open");
@@ -34,4 +36,9 @@ int sys_write(int fd, const void * buffer, size_t size) {
 int sys_sync(int fd) {
     if (__sync == NULL) __sync = dlsym(RTLD_NEXT, "fsync");
     return __sync(fd);
+}
+
+pid_t sys_fork() {
+    if (__fork == NULL) __fork = dlsym(RTLD_NEXT, "fork");
+    return __fork();
 }

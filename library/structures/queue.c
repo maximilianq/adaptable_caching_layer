@@ -43,6 +43,8 @@ void enqueue(queue_t * queue, void * data) {
 
 void * dequeue(queue_t * queue) {
 
+    pthread_mutex_lock(&queue->mutex);
+
     if (sem_trywait(&queue->empty) == -1) {
 
         if (errno != EAGAIN) {
@@ -50,10 +52,10 @@ void * dequeue(queue_t * queue) {
             exit(EXIT_FAILURE);
         }
 
+	pthread_mutex_unlock(&queue->mutex);
+
         return NULL;
     }
-
-    pthread_mutex_lock(&queue->mutex);
 
     void * item = queue->data[queue->front];
     queue->front = (queue->front + 1) % queue->capacity;

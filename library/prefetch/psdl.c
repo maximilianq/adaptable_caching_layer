@@ -6,7 +6,7 @@
 #include "../utils/path.h"
 #include "../utils/directory.h"
 
-void process_fsdl(prefetch_t * prefetch, char * source_path) {
+void process_psdl(prefetch_t * prefetch, char * source_path) {
 
     // retrieve parent path of current file
     char parent_path[PATH_MAX];

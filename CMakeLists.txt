@@ -9,9 +9,12 @@ include_directories(${CMAKE_SOURCE_DIR}/library/include)
 # Set the output directories for external library
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/external)
 
-set(CACHE_SIZE 23592960)
-set(SOURCE_PATH "/home/quaeck/CLionProjects/ld-preload-benchmark/storage/mnt")
-set(CACHE_PATH "/var/cache/iocache")
+#set(CACHE_SIZE 3221225472)
+#set(CACHE_SIZE 3758096384)
+set(CACHE_SIZE 4294967296)
+
+set(SOURCE_PATH "/scratch/hdd/acl/data")
+set(CACHE_PATH "/scratch/nvme/acl/cache")
 
 # Create the external library libacl.so
 add_library(acl_external SHARED ${CMAKE_SOURCE_DIR}/library/external/acl.c)

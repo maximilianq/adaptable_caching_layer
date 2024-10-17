@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <unistd.h>
 
 #include "acl.h"
 #include "utils/path.h"
@@ -67,4 +68,15 @@ ssize_t write(int fd, const void * buffer, size_t size) {
 
 int fsync(int fd) {
     return acl_sync(fd);
+}
+
+pid_t fork() {
+
+    pid_t pid = sys_fork();
+
+    if (pid == 0) {
+        acl_init();
+    }
+
+    return pid;
 }
