@@ -22,7 +22,9 @@ void process_mcfl(prefetch_t * prefetch, char * path) {
 
     // insert file into low priority queue
     if (candidate_path != NULL) {
-        prefetch_predict(prefetch, path);
+        prefetch_predict(prefetch, candidate_path);
+    } else {
+	prefetch_predict(prefetch, path);
     }
 
     // update markov chain with current access

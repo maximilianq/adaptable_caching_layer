@@ -11,6 +11,7 @@ typedef struct mapping_entry {
     int me_descriptor;
     int me_flags;
     mode_t me_mode;
+    int me_hinted;
 } mapping_entry_t;
 
 typedef struct mapping {

@@ -1,10 +1,8 @@
 #define _GNU_SOURCE
-
 #include "calls.h"
 
 #include <dlfcn.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 
 int (* __open)(const char *, int, ...) = NULL;
 int (* __close)(int) = NULL;

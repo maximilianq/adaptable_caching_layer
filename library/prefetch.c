@@ -79,6 +79,8 @@ void * prefetch_handler(void * data) {
             prefetch->p_process(prefetch, path);
             free(path);
         }
+
+	sleep(0.1);
     }
 
     if (prefetch->p_free != NULL)

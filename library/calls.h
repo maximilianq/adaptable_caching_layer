@@ -2,7 +2,6 @@
 #define CALLS_H
 
 #include <stdlib.h>
-#include <unistd.h>
 
 int sys_open(const char * path, int flags, mode_t mode);
 

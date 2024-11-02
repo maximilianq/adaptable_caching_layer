@@ -106,10 +106,11 @@ int insert_cache(cache_t * cache, char * path) {
     entry->ce_size = source_stat.st_size;
     entry->ce_mtime = source_stat.st_mtime;
     init_extent(&entry->ce_extents);
+    entry->ce_ready = 0;
     pthread_mutex_init(&entry->ce_mutex, NULL);
 
     pthread_mutex_lock(&entry->ce_mutex);
-
+ 
     // insert entry into lookup table for fast path based access
     insert_lookup(&cache->c_lookup, entry->ce_source, entry);
 
@@ -123,28 +124,18 @@ int insert_cache(cache_t * cache, char * path) {
 
     struct stat cache_stat;
     if (lstat(entry->ce_cache, &cache_stat) == -1) {
-
         if (errno != ENOENT) {
             printf("ERROR: could not stat cache file");
             exit(EXIT_FAILURE);
         }
-
         copy_file(entry->ce_source, entry->ce_cache);
-
-        //printf("Cached file %s (%d)\n", entry->ce_source, getpid());
-
     } else {   
-        if (cache_stat.st_size != source_stat.st_size) {
-            
+        if (cache_stat.st_size != source_stat.st_size || cache_stat.st_mtime < source_stat.st_mtime) {      
             copy_file(entry->ce_source, entry->ce_cache);
-
-            //printf("Cached file %s (%d)\n", entry->ce_source, getpid());
-        } else {
-            //printf("Cached file %s already in cache (%d)\n", entry->ce_source, getpid());
-	}
+        }
     }
 
-    //copy_file(entry->ce_source, entry->ce_cache);
+    entry->ce_ready = 1;
 
     pthread_mutex_unlock(&entry->ce_mutex);
 
@@ -155,8 +146,6 @@ int insert_cache(cache_t * cache, char * path) {
 
 cache_entry_t * retrieve_cache(cache_t * cache, char * path) {
 
-    pthread_mutex_lock(&cache->c_mutex);
-
     cache_entry_t * entry;
     if ((entry = retreive_lookup(&cache->c_lookup, path)) == NULL) {
         pthread_mutex_unlock(&cache->c_mutex);
@@ -165,12 +154,12 @@ cache_entry_t * retrieve_cache(cache_t * cache, char * path) {
 
     update_priority(&cache->c_priority, time(NULL), entry);
 
-    pthread_mutex_unlock(&cache->c_mutex);
-
     return entry;
 }
 
 int remove_cache(cache_t * cache, char * path) {
+
+    pthread_mutex_lock(&cache->c_mutex);
 
     cache_entry_t * entry = remove_lookup(&cache->c_lookup, path);
     if (entry == NULL) {
@@ -184,14 +173,14 @@ int remove_cache(cache_t * cache, char * path) {
 
     if (cache->c_removed != NULL) cache->c_removed(entry, cache->c_removed_args);
 
+    pthread_mutex_unlock(&cache->c_mutex);
+
     pthread_mutex_lock(&entry->ce_mutex);
 
     if (unlink(entry->ce_cache) == -1) {
         perror("ERROR: could not delete cached file!");
         exit(EXIT_FAILURE);
     }
-
-    pthread_mutex_unlock(&entry->ce_mutex);
 
     // clean up storage occupied by removed entry
     free_extent(&entry->ce_extents);

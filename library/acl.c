@@ -12,6 +12,12 @@
 #include <sys/xattr.h>
 #include <pthread.h>
 
+#include <stdio.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include "calls.h"
 
 #include "mapping.h"
@@ -23,9 +29,23 @@
 
 #include "structures/queue.h"
 
-//#include "prefetch/mcfl.h"
-#include "prefetch/fsdl.h"
-#include "cache/lfu.h"
+#include <dirent.h>
+
+#if defined(PREFETCH_ABFP)
+    #include "prefetch/abfp.h"
+#elif defined(PREFETCH_FSDP)
+    #include "prefetch/fsdl.h"
+#elif defined(PREFETCH_MCFP)
+    #include "prefetch/mcfl.h"
+#endif
+
+#if defined(CACHE_FIFO)
+    #include "cache/fifo.h"
+#elif defined(CACHE_LRU)
+    #include "cache/lru.h"
+#elif defined(CACHE_LFU)
+    #include "cache/lfu.h"
+#endif
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -38,6 +58,45 @@ mapping_t * mapping = NULL;
 
 pthread_t thread_lookahead;
 
+void process_files(cache_t * cache) {
+
+	struct dirent * directory_entry;
+	DIR * directory = opendir(CACHE_PATH);
+
+	if (directory == NULL) {
+		perror("Error: could not open cache directory.");
+		return;
+	}
+
+	while ((directory_entry = readdir(directory)) != NULL) {
+
+		// Skip the current and parent directory entries
+		if (strcmp(directory_entry->d_name, ".") == 0 || strcmp(directory_entry->d_name, "..") == 0) {
+			continue;
+		}
+
+		// Construct the full file name
+		char filename[PATH_MAX];
+		strcpy(filename, directory_entry->d_name);
+		for (char *p = filename; *p; p++) {
+			if (*p == '_') {
+				*p = '/';
+			}
+		}
+
+		// Prepare the modified filename
+		char path[PATH_MAX];
+		strcpy(path, SOURCE_PATH);
+		strcat(path, "/");
+		strcat(path, filename);
+
+		if (access(path, F_OK) == 0)
+                    insert_cache(cache, path);
+	}
+
+	closedir(directory);
+}
+
 void acl_init() {
 
 	if (mapping == NULL) {
@@ -46,14 +105,29 @@ void acl_init() {
 	}
 
 	if (cache == NULL) {
-		cache = malloc(sizeof(cache_t));
-		init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lfu, update_lfu);
+	    cache = malloc(sizeof(cache_t));
+#if defined(CACHE_FIFO)
+            init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_fifo, update_fifo);
+#elif defined(CACHE_LRU)
+            init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lru, update_lru);
+#elif defined(CACHE_LFU)
+            init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lfu, update_lfu);
+#endif
 	}
 
 	if (prefetch == NULL) {
-		prefetch = malloc(sizeof(prefetch_t));
-		prefetch_init(prefetch, NULL, process_fsdl, NULL);
+	    prefetch = malloc(sizeof(prefetch_t));
+#if defined(PREFETCH_ABFP)
+            prefetch_init(prefetch, NULL, process_abfp, NULL);
+#elif defined(PREFETCH_FSDP)
+            prefetch_init(prefetch, NULL, process_fsdl, NULL);
+#elif defined(PREFETCH_MCFP)
+	    printf("Hello World!\n");
+            prefetch_init(prefetch, init_mcfl, process_mcfl, free_mcfl);
+#endif
 	}
+
+	process_files(cache);
 
 	arguments_t * arguments = malloc(sizeof(arguments_t));
 	arguments->a_cache = cache;
@@ -102,34 +176,16 @@ int acl_open(const char * path, int flags, mode_t mode) {
 		return source_file;
 	}
 
+	pthread_mutex_lock(&cache->c_mutex);
+
 	// check if file is already in cache and if yes open cache file
 	if ((cache_entry = retrieve_cache(cache, (char *) path)) != NULL) {
-
-		pthread_mutex_lock(&cache_entry->ce_mutex);
-
-		struct stat source_stat;
-		if (lstat(cache_entry->ce_source, &source_stat) == -1) {
-			perror("ERROR: could not stat cache file!\n");
-			exit(EXIT_FAILURE);
-		}
-
-		if (cache_entry->ce_mtime != source_stat.st_mtime || cache_entry->ce_size != source_stat.st_size) {
-			printf("[WARNING] Cached file was modified thus any changes will be ignored!");
-			remove_cache(cache, (char *) path);
-		}
-
 		if ((cache_file = sys_open(cache_entry->ce_cache, flags, mode)) == -1) {
-			perror("ERROR: could not open cache file!\n");
-			exit(EXIT_FAILURE);
+			cache_entry = NULL;
 		}
-
-		pthread_mutex_unlock(&cache_entry->ce_mutex);
-	} else {
-
-                char * source_path = malloc(PATH_MAX * sizeof(char));
-                strcpy(source_path, path);
-                enqueue(&prefetch->p_history, source_path);
 	}
+
+	pthread_mutex_unlock(&cache->c_mutex);
 
 	// lock mapping mutex for source file descriptor
 	pthread_mutex_lock(&mapping->m_mutex[source_file]);
@@ -141,6 +197,7 @@ int acl_open(const char * path, int flags, mode_t mode) {
 	mapping->m_entries[source_file]->me_descriptor = cache_file;
 	mapping->m_entries[source_file]->me_flags = flags;
 	mapping->m_entries[source_file]->me_mode = mode;
+        mapping->m_entries[source_file]->me_hinted = 0;
 
 	// release mutex of mapping
 	pthread_mutex_unlock(&mapping->m_mutex[source_file]);
@@ -153,28 +210,34 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
-	if (mapping->m_entries[fd] == NULL) {
-		pthread_mutex_unlock(&mapping->m_mutex[fd]);
+	// check if object was opened through caching layer
+        if (mapping->m_entries[fd] == NULL) {
+                pthread_mutex_unlock(&mapping->m_mutex[fd]);
+                return sys_read(fd, buffer, count);
+        }
 
-		ssize_t result = sys_read(fd, buffer, count);
-
-		return result;
-	}
-
+        // check if item is in cache and if not enqueue in prefetch queue
 	if (mapping->m_entries[fd]->me_entry == NULL) {
 
-		pthread_mutex_unlock(&mapping->m_mutex[fd]);
+		if (mapping->m_entries[fd]->me_hinted == 0) {
 
-		//char * source_path = malloc(PATH_MAX * sizeof(char));
-		//strcpy(source_path, mapping->m_entries[fd]->me_path);
-		//enqueue(&prefetch->p_history, source_path);
+                    mapping->m_entries[fd]->me_hinted = 1;
 
-		ssize_t result = sys_read(fd, buffer, count);
+                    char * source_path = malloc(PATH_MAX * sizeof(char));
+		    strcpy(source_path, mapping->m_entries[fd]->me_path);
+		    enqueue(&prefetch->p_history, source_path);
+		}                
 
-		return result;
+                pthread_mutex_unlock(&mapping->m_mutex[fd]);
+
+                return sys_read(fd, buffer, count);
 	}
-
-	pthread_mutex_lock(&mapping->m_entries[fd]->me_entry->ce_mutex);
+	
+	// check if item is currently being transferred and if yes revert to source file
+	if (pthread_mutex_trylock(&mapping->m_entries[fd]->me_entry->ce_mutex) != 0) {
+                pthread_mutex_unlock(&mapping->m_mutex[fd]);
+                return sys_read(fd, buffer, count);
+	}
 
 	// get current offset of filedescriptor
 	off_t offset = lseek(fd, 0, SEEK_CUR);
@@ -206,33 +269,31 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 
 ssize_t acl_write(int fd, const void * buffer, size_t count) {
 
-	printf("<write>\n");
-
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
 	if (mapping->m_entries[fd] == NULL) {
 		pthread_mutex_unlock(&mapping->m_mutex[fd]);
 		ssize_t result = sys_write(fd, buffer, count);
 
-		printf("</write>\n");
-
 		return result;
 	}
 
 	if (mapping->m_entries[fd]->me_entry == NULL) {
 
-		pthread_mutex_unlock(&mapping->m_mutex[fd]);
+                //printf("Hello World\n");
 
-		//char * source_path = malloc(PATH_MAX * sizeof(char));
-		//strcpy(source_path, mapping->m_entries[fd]->me_path);
-		//enqueue(&prefetch->p_history, source_path);
+                if (mapping->m_entries[fd]->me_hinted == 0) {
 
-		ssize_t result = sys_write(fd, buffer, count);
+                    mapping->m_entries[fd]->me_hinted = 1;
 
-		printf("</write>\n");
+                    char * source_path = malloc(PATH_MAX * sizeof(char));
+                    strcpy(source_path, mapping->m_entries[fd]->me_path);
+                    enqueue(&prefetch->p_history, source_path);
+                }
 
+                pthread_mutex_unlock(&mapping->m_mutex[fd]);
 
-		return result;
+		return sys_write(fd, buffer, count);
 	}
 
 	pthread_mutex_lock(&mapping->m_entries[fd]->me_entry->ce_mutex);
@@ -269,14 +330,10 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 	pthread_mutex_unlock(&mapping->m_entries[fd]->me_entry->ce_mutex);
 	pthread_mutex_unlock(&mapping->m_mutex[fd]);
 
-	printf("</write>\n");
-
 	return result;
 }
 
 int acl_close(int fd) {
-
-        printf("<close>\n");
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
@@ -302,14 +359,10 @@ int acl_close(int fd) {
 
 	pthread_mutex_unlock(&mapping->m_mutex[fd]);
 
-    printf("</close>\n");
-
     return sys_close(fd);
 }
 
 int acl_sync(int fd) {
-
-	printf("<sync>\n");
 
 	pthread_mutex_lock(&mapping->m_mutex[fd]);
 
@@ -327,8 +380,6 @@ int acl_sync(int fd) {
 	}
 
 	pthread_mutex_unlock(&mapping->m_mutex[fd]);
-
-	printf("</sync>\n");
 
 	return sys_sync(fd);
 }

@@ -1,8 +1,26 @@
 #include "priority.h"
 
+#include <stdio.h>
+#include <execinfo.h>
+#include <unistd.h>
+
 void listen_internal_priority(int index, unsigned long score, void * data, void * args) {
     int * current_index = retreive_internal_lookup(args, data);
-    *current_index = index;
+    if (current_index != NULL)
+        *current_index = index;
+    else {
+        printf("well...\n");/*
+            void *array[10];
+    size_t size;
+
+    // Get the backtrace
+    size = backtrace(array, 10);
+
+    // Print the backtrace to stderr
+    fprintf(stderr, "Error\n");
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    exit(1);*/
+    }
 }
 
 int compare_min_internal_priority(unsigned long first, unsigned long second) {

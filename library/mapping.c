@@ -77,6 +77,7 @@ void mapping_cache_removed(cache_entry_t * entry, void * data) {
 
             mapping_entry->me_entry = NULL;
             mapping_entry->me_descriptor = -1;
+	    mapping_entry->me_hinted=0;
         }
 
         pthread_mutex_unlock(&mapping->m_mutex[i]);

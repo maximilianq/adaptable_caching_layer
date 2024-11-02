@@ -9,9 +9,14 @@ include_directories(${CMAKE_SOURCE_DIR}/library/include)
 # Set the output directories for external library
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/external)
 
-#set(CACHE_SIZE 3221225472)
-#set(CACHE_SIZE 3758096384)
-set(CACHE_SIZE 4294967296)
+set(CACHE_MODE "LRU")
+set(PREFETCH_MODE "FSDP")
+
+#set(CACHE_SIZE 2147483648)
+#set(CACHE_SIZE 1932735283)
+#set(CACHE_SIZE 1717986918)
+#set(CACHE_SIZE 1503238554)
+set(CACHE_SIZE 1288490189)
 
 set(SOURCE_PATH "/scratch/hdd/acl/data")
 set(CACHE_PATH "/scratch/nvme/acl/cache")
@@ -45,17 +50,34 @@ add_library(acl SHARED
         ${CMAKE_SOURCE_DIR}/library/structures/queue.c
         ${CMAKE_SOURCE_DIR}/library/structures/internal/heap.c
         ${CMAKE_SOURCE_DIR}/library/structures/heap.c
-        ${CMAKE_SOURCE_DIR}/library/prefetch/fsdl.c
         ${CMAKE_SOURCE_DIR}/library/prefetch.c
         ${CMAKE_SOURCE_DIR}/library/prefetch.c
         ${CMAKE_SOURCE_DIR}/library/mapping.c
-        library/prefetch/mcfl.c
-        library/cache/fifo.c
-        library/cache/lru.c
-        library/cache/lfu.c
+        ${CMAKE_SOURCE_DIR}/library/prefetch/fsdl.c
+        ${CMAKE_SOURCE_DIR}/library/prefetch/mcfl.c
+        ${CMAKE_SOURCE_DIR}/library/prefetch/abfp.c
+        ${CMAKE_SOURCE_DIR}/library/cache/fifo.c
+        ${CMAKE_SOURCE_DIR}/library/cache/lru.c
+        ${CMAKE_SOURCE_DIR}/library/cache/lfu.c
 )
 
 target_compile_definitions(acl PRIVATE CACHE_SIZE=${CACHE_SIZE} SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
+
+if(PREFETCH_MODE STREQUAL "ABFP")
+    target_compile_definitions(acl PRIVATE PREFETCH_ABFP)
+elseif(PREFETCH_MODE STREQUAL "FSDP")
+    target_compile_definitions(acl PRIVATE PREFETCH_FSDP)
+elseif(PREFETCH_MODE STREQUAL "MCFP")
+    target_compile_definitions(acl PRIVATE PREFETCH_MCFP)
+endif()
+
+if(CACHE_MODE STREQUAL "FIFO")
+    target_compile_definitions(acl PRIVATE CACHE_FIFO)
+elseif(CACHE_MODE STREQUAL "LRU")
+    target_compile_definitions(acl PRIVATE CACHE_LRU)
+elseif(CACHE_MODE STREQUAL "LFU")
+    target_compile_definitions(acl PRIVATE CACHE_LFU)
+endif()
 
 target_link_libraries(acl dl pthread)
 target_link_options(acl PRIVATE "-Wl,-init,acl_init")
@@ -74,6 +96,6 @@ set_target_properties(acl PROPERTIES OUTPUT_NAME "acl")
 #target_compile_definitions(bytes_read PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
 #target_link_libraries(bytes_read /lib/libacl.so)
 
-#add_executable(bytes_write ${CMAKE_SOURCE_DIR}/examples/bytes_write.c)
-#target_compile_definitions(bytes_write PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
+add_executable(bytes_write ${CMAKE_SOURCE_DIR}/examples/bytes_write.c)
+target_compile_definitions(bytes_write PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
 #target_link_libraries(bytes_write /lib/libacl.so)

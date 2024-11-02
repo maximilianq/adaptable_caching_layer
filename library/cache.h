@@ -14,6 +14,7 @@ typedef struct cache_entry {
     size_t ce_size;
     time_t ce_mtime;
     extent_t ce_extents;
+    int ce_ready;
     pthread_mutex_t ce_mutex;
 } cache_entry_t;
 
