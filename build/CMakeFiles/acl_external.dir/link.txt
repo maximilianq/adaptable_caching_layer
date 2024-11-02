@@ -1,1 +1,0 @@
-/usr/bin/cc -fPIC -g -shared -Wl,-soname,libacl.so -o external/libacl.so CMakeFiles/acl_external.dir/library/external/acl.c.o  -ldl
