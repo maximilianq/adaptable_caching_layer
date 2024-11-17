@@ -3,13 +3,17 @@
 
 #include <stdlib.h>
 
+#include "prefetch.h"
+
 void acl_init();
 
 int acl_advise(const char * path, int flags);
 
-void acl_prefetch(void * init, void * process, void * free);
+void acl_prefetch(prefetch_strategy_t strategy);
 
-void acl_select(void * prefetch, char * path);
+void acl_cache(cache_policy_t policy);
+
+void acl_select(prefetch_t * prefetch, char * path);
 
 int acl_open(const char * path, int flags, mode_t mode);
 

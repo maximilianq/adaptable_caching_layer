@@ -1,22 +1,19 @@
 #ifndef QUEUEU_H
 #define QUEUEU_H
 
-#include <pthread.h>
-#include <semaphore.h>
+#include "internal/queue.h"
 
 typedef struct {
-    void ** data;
-    int capacity, size, front, back;
-    pthread_mutex_t mutex;
-    sem_t full, empty;
+    internal_queue_t q_internal;
+    pthread_mutex_t q_mutex;
 } queue_t;
 
 void init_queue(queue_t * queue, int capacity);
 
 void free_queue(queue_t * queue);
 
-void enqueue(queue_t * queue, void * data);
+void push_queue(queue_t * queue, void * data);
 
-void * dequeue(queue_t * queue);
+void * pop_queue(queue_t * queue);
 
 #endif

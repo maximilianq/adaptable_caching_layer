@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include "path.h"
 
 #include <string.h>
@@ -49,15 +47,15 @@ char * get_cache_path(const char * input, char * output, size_t size) {
     return output;
 }
 
-int is_valid(const char * path) {
+int is_cache_path(const char * path) {
     return strncmp(SOURCE_PATH, path, strlen(SOURCE_PATH)) == 0;
 }
 
-char * get_parent_path(const char * input, char * output, size_t size) {
+char * get_parent_path(const char * input, char * output) {
 
     strcpy(output, input);
 
-    for (int i = strlen(output); i >= 0; i--) {
+    for (long i = strlen(output); i >= 0; i--) {
         if (output[i] == '/') {
             output[i] = '\0';
             break;

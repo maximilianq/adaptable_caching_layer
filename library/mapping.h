@@ -23,8 +23,8 @@ void mapping_init(mapping_t * mapping);
 
 void mapping_free(mapping_t * mapping);
 
-void mapping_cache_inserted(cache_entry_t * entry, void * data);
+void mapping_cache_inserted(cache_t * cache, cache_entry_t * entry);
 
-void mapping_cache_removed(cache_entry_t * entry, void * data);
+void mapping_cache_removed(cache_t * cache, cache_entry_t * entry);
 
 #endif

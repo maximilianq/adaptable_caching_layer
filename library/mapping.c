@@ -33,9 +33,9 @@ void mapping_free(mapping_t * mapping) {
     free(mapping->m_mutex);
 }
 
-void mapping_cache_inserted(cache_entry_t * entry, void * data) {
+void mapping_cache_inserted(cache_t * cache, cache_entry_t * entry) {
 
-    mapping_t * mapping = data;
+    mapping_t * mapping = cache->c_mapping;
 
     for (int i = 0; i < 1024; i++) {
 
@@ -52,9 +52,9 @@ void mapping_cache_inserted(cache_entry_t * entry, void * data) {
     }
 }
 
-void mapping_cache_removed(cache_entry_t * entry, void * data) {
+void mapping_cache_removed(cache_t * cache, cache_entry_t * entry) {
 
-    mapping_t * mapping = data;
+    mapping_t * mapping = cache->c_mapping;
 
     for (int i = 0; i < 1024; i++) {
 

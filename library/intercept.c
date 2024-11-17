@@ -25,12 +25,11 @@ int open(const char * path, int flags, ...) {
     va_end(args);
 
     // check if file is in cached directory
-    int result = is_valid(full_path);
-    if (result) {
+    if (is_cache_path(full_path)) {
         return acl_open(full_path, flags, mode);
     }
 
-    return sys_open(path, flags, mode);
+    return acl_open(path, flags, mode);
 }
 
 int open64(const char * path, int flags, ...) {
@@ -46,8 +45,7 @@ int open64(const char * path, int flags, ...) {
     va_end(args);
 
     // check if file is in cached directory
-    int result = is_valid(full_path);
-    if (result) {
+    if (is_cache_path(full_path)) {
         return acl_open(full_path, flags, mode);
     }
 

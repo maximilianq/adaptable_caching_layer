@@ -8,18 +8,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/xattr.h>
 #include <pthread.h>
-
-#include <stdio.h>
-#include <execinfo.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #include "calls.h"
-
 #include "mapping.h"
 #include "prefetch.h"
 #include "cache.h"
@@ -29,28 +22,11 @@
 
 #include "structures/queue.h"
 
-#include <dirent.h>
-
-#if defined(PREFETCH_ABFP)
-    #include "prefetch/abfp.h"
-#elif defined(PREFETCH_FSDP)
-    #include "prefetch/fsdl.h"
-#elif defined(PREFETCH_MCFP)
-    #include "prefetch/mcfl.h"
-#endif
-
-#if defined(CACHE_FIFO)
-    #include "cache/fifo.h"
-#elif defined(CACHE_LRU)
-    #include "cache/lru.h"
-#elif defined(CACHE_LFU)
-    #include "cache/lfu.h"
-#endif
+#include "prefetch/variant.h"
+#include "cache/variant.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
-
-typedef struct mapping mapping_t;
 
 cache_t * cache = NULL;
 prefetch_t * prefetch = NULL;
@@ -104,36 +80,76 @@ void acl_init() {
 		mapping_init(mapping);
 	}
 
+	// initialize cache structure
 	if (cache == NULL) {
-	    cache = malloc(sizeof(cache_t));
-#if defined(CACHE_FIFO)
-            init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_fifo, update_fifo);
-#elif defined(CACHE_LRU)
-            init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lru, update_lru);
-#elif defined(CACHE_LFU)
-            init_cache(cache, CACHE_SIZE, mapping_cache_inserted, mapping, mapping_cache_removed, mapping, insert_lfu, update_lfu);
-#endif
+
+		// allocate memory for storing cache structure
+		cache = malloc(sizeof(cache_t));
+
+		// retrieve cache capacity from environmental variable
+		const char * capacity_string = getenv("ACL_CAPACITY");
+		ssize_t capacity = 0;
+		if (capacity_string == NULL) {
+			perror("Error: could not retrieve cache capacity!");
+			exit(EXIT_FAILURE);
+		}
+		capacity = strtol(capacity_string, NULL, 10);
+
+		// retrieve cache policy from environmental variable
+		const char * policy = getenv("ACL_POLICY");
+		if (policy == NULL) {
+			perror("Error: could not retrieve caching policy!");
+			exit(EXIT_FAILURE);
+		}
+
+		cache_policy_t cache_policy;
+		if (strcmp(policy, "FIFO") == 0) {
+			cache_policy = policy_fifo;
+		} else if (strcmp(policy, "LRU") == 0) {
+			cache_policy = policy_lru;
+		} else if (strcmp(policy, "LFU") == 0) {
+			cache_policy = policy_lfu;
+		} else {
+			perror("Error: the specified cache policy is not implemented!");
+			exit(EXIT_FAILURE);
+		}
+
+		init_cache(cache, mapping, capacity, cache_policy, mapping_cache_inserted, mapping_cache_removed);
 	}
 
+	// initialize prefetch structure
 	if (prefetch == NULL) {
-	    prefetch = malloc(sizeof(prefetch_t));
-#if defined(PREFETCH_ABFP)
-            prefetch_init(prefetch, NULL, process_abfp, NULL);
-#elif defined(PREFETCH_FSDP)
-            prefetch_init(prefetch, NULL, process_fsdl, NULL);
-#elif defined(PREFETCH_MCFP)
-	    printf("Hello World!\n");
-            prefetch_init(prefetch, init_mcfl, process_mcfl, free_mcfl);
-#endif
+
+		// allocate memory for storing prefetch structure
+		prefetch = malloc(sizeof(prefetch_t));
+
+		// retrieve prefetch strategy from environmental variable
+		const char * strategy = getenv("ACL_STRATEGY");
+		if (strategy == NULL) {
+			perror("Error: could not retrieve prefetch strategy!");
+			exit(EXIT_FAILURE);
+		}
+
+		prefetch_strategy_t prefetch_strategy;
+		if (strcmp(strategy, "ABFP") == 0) {
+			prefetch_strategy = abfp_strategy;
+		} else if (strcmp(strategy, "FSDP") == 0) {
+			prefetch_strategy = fsdp_strategy;
+		} else if (strcmp(strategy, "MCFP") == 0) {
+			prefetch_strategy = mcfp_strategy;
+		} else if (strcmp(strategy, "NONE") == 0) {
+			prefetch_strategy.ps_init = NULL;
+			prefetch_strategy.ps_free = NULL;
+			prefetch_strategy.ps_process = NULL;
+		} else {
+			perror("Error: the specified prefetch strategy is not implemented!");
+			exit(EXIT_FAILURE);
+		}
+
+		prefetch_init(prefetch, cache, prefetch_strategy);
 	}
 
 	process_files(cache);
-
-	arguments_t * arguments = malloc(sizeof(arguments_t));
-	arguments->a_cache = cache;
-	arguments->a_prefetch = prefetch;
-
-	pthread_create(&prefetch->p_thread, NULL, prefetch_handler, arguments);
 }
 
 int ACL_WILLNEED = 1;
@@ -145,9 +161,9 @@ int acl_advise(const char * path, int flags) {
 	char * source_path = malloc(PATH_MAX * sizeof(char));
 	get_full_path(path, source_path, PATH_MAX);
 
-	// check if file will be needed in the future and enqueue into high priority caching
+	// check if file will be needed in the future and push_queue into high priority caching
 	if ((flags & ACL_WILLNEED) == ACL_WILLNEED) {
-		enqueue(&prefetch->p_high, source_path);
+		push_queue(&prefetch->p_high, source_path);
 	}
 
 	// check if file will not be needed in the future and remove from cache
@@ -158,12 +174,16 @@ int acl_advise(const char * path, int flags) {
 	return 0;
 }
 
-void acl_prefetch(void * init, void * process, void * free) {
-	prefetch_replace(prefetch, cache, init, process, free);
+void acl_prefetch(prefetch_strategy_t strategy) {
+	prefetch_replace(prefetch, cache, strategy);
 }
 
-void acl_select(void * prefetch, char * path) {
-	enqueue(&((prefetch_t *) prefetch)->p_low, path);
+void acl_cache(cache_policy_t policy) {
+	cache_replace(cache, policy);
+}
+
+void acl_select(prefetch_t * prefetch, char * path) {
+	push_queue(&prefetch->p_low, path);
 }
 
 int acl_open(const char * path, int flags, mode_t mode) {
@@ -197,7 +217,7 @@ int acl_open(const char * path, int flags, mode_t mode) {
 	mapping->m_entries[source_file]->me_descriptor = cache_file;
 	mapping->m_entries[source_file]->me_flags = flags;
 	mapping->m_entries[source_file]->me_mode = mode;
-        mapping->m_entries[source_file]->me_hinted = 0;
+	mapping->m_entries[source_file]->me_hinted = 0;
 
 	// release mutex of mapping
 	pthread_mutex_unlock(&mapping->m_mutex[source_file]);
@@ -216,7 +236,7 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
                 return sys_read(fd, buffer, count);
         }
 
-        // check if item is in cache and if not enqueue in prefetch queue
+        // check if item is in cache and if not push_queue in prefetch queue
 	if (mapping->m_entries[fd]->me_entry == NULL) {
 
 		if (mapping->m_entries[fd]->me_hinted == 0) {
@@ -225,7 +245,7 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
 
                     char * source_path = malloc(PATH_MAX * sizeof(char));
 		    strcpy(source_path, mapping->m_entries[fd]->me_path);
-		    enqueue(&prefetch->p_history, source_path);
+		    push_queue(&prefetch->p_history, source_path);
 		}                
 
                 pthread_mutex_unlock(&mapping->m_mutex[fd]);
@@ -288,7 +308,7 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 
                     char * source_path = malloc(PATH_MAX * sizeof(char));
                     strcpy(source_path, mapping->m_entries[fd]->me_path);
-                    enqueue(&prefetch->p_history, source_path);
+                    push_queue(&prefetch->p_history, source_path);
                 }
 
                 pthread_mutex_unlock(&mapping->m_mutex[fd]);

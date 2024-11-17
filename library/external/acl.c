@@ -7,10 +7,7 @@
 bool warned = false;
 
 // dummy implementation of the hinting interface enabling applications to hint their future use of files
-int ACL_WILLNEED = 1;
-int ACL_DONTNEED = 2;
-
-int acl_advise(const char * path, int flags, int priority) {
+int acl_advise(const char * path, int flags) {
 
     if (!warned) {
         printf("WARNING: acl library was not loaded even though acl method is implemented!\n");
@@ -21,7 +18,7 @@ int acl_advise(const char * path, int flags, int priority) {
 }
 
 // dummy implementation of the customization interface enabling application specific prefetching logic
-void acl_prefetch(void * init, void * process, void * free) {
+void acl_prefetch(prefetch_strategy_t strategy) {
 
     if (!warned) {
         printf("WARNING: acl library was not loaded even though acl method is implemented!\n");
@@ -29,7 +26,16 @@ void acl_prefetch(void * init, void * process, void * free) {
     }
 }
 
-void acl_select(void * prefetch, char * path) {
+// dummy implementation of the customization interface enabling application specific caching logic
+void acl_cache(prefetch_strategy_t strategy) {
+
+    if (!warned) {
+        printf("WARNING: acl library was not loaded even though acl method is implemented!\n");
+        warned = true;
+    }
+}
+
+void acl_predict(char * path) {
 
     if (!warned) {
         printf("WARNING: acl library was not loaded even though acl method is implemented!\n");

@@ -9,24 +9,24 @@
 typedef struct prefetch prefetch_t;
 
 // functions to be implemented by custom prefetching logic
-typedef void (* init_t) (prefetch_t * prefetch);
-typedef void (* free_t) (prefetch_t * prefetch);
-typedef void (* process_t) (prefetch_t * prefetch, char * path);
+typedef void (* init_prefetch_t) (prefetch_t * prefetch);
+typedef void (* free_prefetch_t) (prefetch_t * prefetch);
+typedef void (* process_prefetch_t) (prefetch_t * prefetch, char * path);
+
+typedef struct prefetch_strategy {
+    init_prefetch_t ps_init;
+    free_prefetch_t ps_free;
+    process_prefetch_t ps_process;
+} prefetch_strategy_t;
 
 typedef struct prefetch {
-
-    queue_t         p_history;
-    queue_t         p_high;
-    queue_t         p_low;
-
-    init_t          p_init;
-    free_t          p_free;
-    process_t       p_process;
-
-    pthread_t       p_thread;
-    int             p_status;
-    void *          p_data;
-
+    queue_t p_history;
+    queue_t p_high;
+    queue_t p_low;
+    prefetch_strategy_t p_strategy;
+    void * p_data;
+    pthread_t p_thread;
+    int p_status;
 } prefetch_t;
 
 typedef struct arguments {
@@ -34,11 +34,11 @@ typedef struct arguments {
     cache_t *       a_cache;
 } arguments_t;
 
-void prefetch_init(prefetch_t * prefetch, init_t init, process_t process, free_t free);
+void prefetch_init(prefetch_t * prefetch, cache_t * cache, prefetch_strategy_t strategy);
 
 void prefetch_free(prefetch_t * prefetch);
 
-void prefetch_replace(prefetch_t * prefetch, cache_t * cache, init_t init, process_t process, free_t free);
+void prefetch_replace(prefetch_t * prefetch, cache_t * cache, prefetch_strategy_t strategy);
 
 void prefetch_predict(prefetch_t * prefetch, char * path);
 

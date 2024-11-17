@@ -9,17 +9,8 @@ include_directories(${CMAKE_SOURCE_DIR}/library/include)
 # Set the output directories for external library
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/external)
 
-set(CACHE_MODE "LRU")
-set(PREFETCH_MODE "FSDP")
-
-#set(CACHE_SIZE 2147483648)
-#set(CACHE_SIZE 1932735283)
-#set(CACHE_SIZE 1717986918)
-#set(CACHE_SIZE 1503238554)
-set(CACHE_SIZE 1288490189)
-
-set(SOURCE_PATH "/scratch/hdd/acl/data")
-set(CACHE_PATH "/scratch/nvme/acl/cache")
+set(SOURCE_PATH "/home/quaeck/whythehell/adaptable_caching_layer/build/data")
+set(CACHE_PATH "/home/quaeck/whythehell/adaptable_caching_layer/build/cache")
 
 # Create the external library libacl.so
 add_library(acl_external SHARED ${CMAKE_SOURCE_DIR}/library/external/acl.c)
@@ -39,6 +30,7 @@ add_library(acl SHARED
         ${CMAKE_SOURCE_DIR}/library/utils/directory.c
         ${CMAKE_SOURCE_DIR}/library/utils/file.c
         ${CMAKE_SOURCE_DIR}/library/utils/path.c
+        ${CMAKE_SOURCE_DIR}/library/utils/string.c
         ${CMAKE_SOURCE_DIR}/library/structures/internal/markov.c
         ${CMAKE_SOURCE_DIR}/library/structures/markov.c
         ${CMAKE_SOURCE_DIR}/library/structures/internal/extent.c
@@ -47,55 +39,39 @@ add_library(acl SHARED
         ${CMAKE_SOURCE_DIR}/library/structures/priority.c
         ${CMAKE_SOURCE_DIR}/library/structures/internal/lookup.c
         ${CMAKE_SOURCE_DIR}/library/structures/lookup.c
+        ${CMAKE_SOURCE_DIR}/library/structures/internal/queue.c
         ${CMAKE_SOURCE_DIR}/library/structures/queue.c
         ${CMAKE_SOURCE_DIR}/library/structures/internal/heap.c
         ${CMAKE_SOURCE_DIR}/library/structures/heap.c
         ${CMAKE_SOURCE_DIR}/library/prefetch.c
         ${CMAKE_SOURCE_DIR}/library/prefetch.c
         ${CMAKE_SOURCE_DIR}/library/mapping.c
-        ${CMAKE_SOURCE_DIR}/library/prefetch/fsdl.c
-        ${CMAKE_SOURCE_DIR}/library/prefetch/mcfl.c
+        ${CMAKE_SOURCE_DIR}/library/prefetch/fsdp.c
+        ${CMAKE_SOURCE_DIR}/library/prefetch/mcfp.c
         ${CMAKE_SOURCE_DIR}/library/prefetch/abfp.c
         ${CMAKE_SOURCE_DIR}/library/cache/fifo.c
         ${CMAKE_SOURCE_DIR}/library/cache/lru.c
         ${CMAKE_SOURCE_DIR}/library/cache/lfu.c
 )
 
-target_compile_definitions(acl PRIVATE CACHE_SIZE=${CACHE_SIZE} SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
-
-if(PREFETCH_MODE STREQUAL "ABFP")
-    target_compile_definitions(acl PRIVATE PREFETCH_ABFP)
-elseif(PREFETCH_MODE STREQUAL "FSDP")
-    target_compile_definitions(acl PRIVATE PREFETCH_FSDP)
-elseif(PREFETCH_MODE STREQUAL "MCFP")
-    target_compile_definitions(acl PRIVATE PREFETCH_MCFP)
-endif()
-
-if(CACHE_MODE STREQUAL "FIFO")
-    target_compile_definitions(acl PRIVATE CACHE_FIFO)
-elseif(CACHE_MODE STREQUAL "LRU")
-    target_compile_definitions(acl PRIVATE CACHE_LRU)
-elseif(CACHE_MODE STREQUAL "LFU")
-    target_compile_definitions(acl PRIVATE CACHE_LFU)
-endif()
+target_compile_definitions(acl PRIVATE SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
 
 target_link_libraries(acl dl pthread)
 target_link_options(acl PRIVATE "-Wl,-init,acl_init")
 set_target_properties(acl PROPERTIES OUTPUT_NAME "acl")
 
-#find_library(ACL_LIB NAMES acl PATHS /lib /usr/lib ${CMAKE_BINARY_DIR}/external)
+add_executable(prefetch_seq_read ${CMAKE_SOURCE_DIR}/examples/prefetch_seq_read.c)
+target_compile_definitions(prefetch_seq_read PRIVATE SOURCE_PATH="${SOURCE_PATH}")
+target_link_libraries(prefetch_seq_read ${CMAKE_BINARY_DIR}/external/libacl.so)
 
-#if (ACL_LIB)
-#    message(STATUS "Found acl library at ${ACL_LIB}")
-#else()
-#    message(FATAL_ERROR "acl library not found")
-#endif()
+add_executable(prefetch_rand_read ${CMAKE_SOURCE_DIR}/examples/prefetch_rand_read.c)
+target_compile_definitions(prefetch_rand_read PRIVATE SOURCE_PATH="${SOURCE_PATH}")
+target_link_libraries(prefetch_rand_read ${CMAKE_BINARY_DIR}/external/libacl.so)
 
-# Create the executables
-#add_executable(bytes_read ${CMAKE_SOURCE_DIR}/examples/bytes_read.c)
-#target_compile_definitions(bytes_read PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
-#target_link_libraries(bytes_read /lib/libacl.so)
+add_executable(prefetch_seq_write ${CMAKE_SOURCE_DIR}/examples/prefetch_seq_write.c)
+target_compile_definitions(prefetch_seq_write PRIVATE SOURCE_PATH="${SOURCE_PATH}")
+target_link_libraries(prefetch_seq_write ${CMAKE_BINARY_DIR}/external/libacl.so)
 
-add_executable(bytes_write ${CMAKE_SOURCE_DIR}/examples/bytes_write.c)
-target_compile_definitions(bytes_write PRIVATE CACHE_SIZE=23592960000 SOURCE_PATH="${SOURCE_PATH}" CACHE_PATH="${CACHE_PATH}")
-#target_link_libraries(bytes_write /lib/libacl.so)
+add_executable(prefetch_rand_write ${CMAKE_SOURCE_DIR}/examples/prefetch_rand_write.c)
+target_compile_definitions(prefetch_rand_write PRIVATE SOURCE_PATH="${SOURCE_PATH}")
+target_link_libraries(prefetch_rand_write ${CMAKE_BINARY_DIR}/external/libacl.so)

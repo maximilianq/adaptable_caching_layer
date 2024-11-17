@@ -2,47 +2,63 @@
 
 #include "queue.h"
 
+#include <errno.h>
 #include <stdlib.h>
-#include <pthread.h>
+#include <stdio.h>
 #include <semaphore.h>
 
-void init_queue(queue_t * queue, int capacity) {
+void init_internal_queue(internal_queue_t * queue, int capacity) {
     queue->data = malloc(capacity * sizeof(void *));
     queue->capacity = capacity;
     queue->size = 0;
     queue->front = 0;
     queue->back = 0;
+    sem_init(&queue->empty, 0, 0);
+    sem_init(&queue->full, 0, capacity);
 }
 
-void free_queue(queue_t * queue) {
+void free_internal_queue(internal_queue_t * queue) {
     free(queue->data);
+    sem_destroy(&queue->empty);
+    sem_destroy(&queue->full);
 }
 
-void enqueue(queue_t * queue, void * data) {
+void push_internal_queue(internal_queue_t * queue, void * data) {
 
-    pthread_mutex_lock(&queue->mutex);
+    if (sem_trywait(&queue->full) == -1) {
 
-    if (queue->size < queue->capacity) {
-        queue->data[queue->back] = data;
-        queue->back = (queue->back + 1) % queue->capacity;
-        queue->size++;
-        sem_post(&queue->empty);
+        if (errno != EAGAIN) {
+            perror("ERROR: could not wait for semaphore!");
+            exit(EXIT_FAILURE);
+        }
+
+        return;
     }
 
-    pthread_mutex_unlock(&queue->mutex);
+    queue->data[queue->back] = data;
+    queue->back = (queue->back + 1) % queue->capacity;
+    queue->size++;
+
+    sem_post(&queue->empty);
 }
 
-void * dequeue(queue_t * queue) {
+void * pop_internal_queue(internal_queue_t * queue) {
 
-    sem_wait(&queue->empty);
+    if (sem_trywait(&queue->empty) == -1) {
 
-    pthread_mutex_lock(&queue->mutex);
+        if (errno != EAGAIN) {
+            perror("ERROR: could not wait for semaphore!");
+            exit(EXIT_FAILURE);
+        }
+
+        return NULL;
+    }
 
     void * item = queue->data[queue->front];
     queue->front = (queue->front + 1) % queue->capacity;
     queue->size--;
 
-    pthread_mutex_unlock(&queue->mutex);
+    sem_post(&queue->full);
 
     return item;
 }
