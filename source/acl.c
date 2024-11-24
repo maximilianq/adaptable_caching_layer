@@ -157,9 +157,6 @@ void acl_init() {
 	acl_import(cache);
 }
 
-int ACL_WILLNEED = 1;
-int ACL_DONTNEED = 2;
-
 int acl_advise(const char * path, int flags) {
 
 	// expand relative path to full path
@@ -189,6 +186,17 @@ void acl_cache(cache_policy_t policy) {
 
 void acl_select(prefetch_t * prefetch, char * path) {
 	push_queue(&prefetch->p_low, path);
+}
+
+int acl_miss(prefetch_t * prefetch, char * path, int operation) {
+
+	cache_miss_t * cache_miss = malloc(sizeof(cache_miss_t));
+
+	strcpy(cache_miss->cm_path, path);
+	cache_miss->cm_time = time(NULL);
+	cache_miss->cm_operation = operation;
+
+	push_queue(&prefetch->p_history, cache_miss);
 }
 
 int acl_open(const char * path, int flags, mode_t mode) {
@@ -241,23 +249,19 @@ ssize_t acl_read(int fd, void * buffer, size_t count) {
                 return sys_read(fd, buffer, count);
         }
 
-        // check if item is in cache and if not push_queue in prefetch queue
+	// check if item is in cache and if not push_queue in prefetch queue
 	if (mapping->m_entries[fd]->me_entry == NULL) {
 
 		if (mapping->m_entries[fd]->me_hinted == 0) {
+			mapping->m_entries[fd]->me_hinted = 1;
+			acl_miss(prefetch, mapping->m_entries[fd]->me_path, CM_READ);
+		}
 
-                    mapping->m_entries[fd]->me_hinted = 1;
+		pthread_mutex_unlock(&mapping->m_mutex[fd]);
 
-                    char * source_path = malloc(PATH_MAX * sizeof(char));
-		    strcpy(source_path, mapping->m_entries[fd]->me_path);
-		    push_queue(&prefetch->p_history, source_path);
-		}                
-
-                pthread_mutex_unlock(&mapping->m_mutex[fd]);
-
-                return sys_read(fd, buffer, count);
+		return sys_read(fd, buffer, count);
 	}
-	
+
 	// check if item is currently being transferred and if yes revert to source file
 	if (pthread_mutex_trylock(&mapping->m_entries[fd]->me_entry->ce_mutex) != 0) {
                 pthread_mutex_unlock(&mapping->m_mutex[fd]);
@@ -305,16 +309,12 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 
 	if (mapping->m_entries[fd]->me_entry == NULL) {
 
-                if (mapping->m_entries[fd]->me_hinted == 0) {
+		if (mapping->m_entries[fd]->me_hinted == 0) {
+			mapping->m_entries[fd]->me_hinted = 1;
+			acl_miss(prefetch, mapping->m_entries[fd]->me_path, CM_WRITE);
+		}
 
-                    mapping->m_entries[fd]->me_hinted = 1;
-
-                    char * source_path = malloc(PATH_MAX * sizeof(char));
-                    strcpy(source_path, mapping->m_entries[fd]->me_path);
-                    push_queue(&prefetch->p_history, source_path);
-                }
-
-                pthread_mutex_unlock(&mapping->m_mutex[fd]);
+		pthread_mutex_unlock(&mapping->m_mutex[fd]);
 
 		return sys_write(fd, buffer, count);
 	}

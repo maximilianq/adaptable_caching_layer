@@ -3,6 +3,6 @@
 
 #include "../prefetch.h"
 
-void process_abfp(prefetch_t * prefetch, char * source_path);
+void process_abfp(prefetch_t * prefetch, cache_miss_t cache_miss);
 
 #endif

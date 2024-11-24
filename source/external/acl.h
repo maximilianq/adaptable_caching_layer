@@ -1,6 +1,9 @@
 #ifndef ACL_H
 #define ACL_H
 
+#define ACL_WILLNEED 1
+#define ACL_DONTNEED 2
+
 typedef struct prefetch prefetch_t;
 typedef struct prefetch cache_t;
 typedef struct prefetch cache_entry_t;
@@ -34,8 +37,6 @@ typedef struct cache_policy {
     pop_cache_t cp_pop;
 } cache_policy_t;
 
-int ACL_WILLNEED = 1;
-int ACL_DONTNEED = 2;
 int acl_advise(const char * path, int flags);
 
 void acl_prefetch(prefetch_strategy_t strategy);

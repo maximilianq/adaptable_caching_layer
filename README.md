@@ -109,7 +109,7 @@ To access these functions simply include the following header in your custom imp
 #include <external/acl.h>
 ```
 
-# Custom Benchmark
+## Custom Benchmark
 The library includes a custom benchmarking tool that can be executed with the following command:
 
 ```
@@ -130,6 +130,6 @@ The library includes a custom benchmarking tool that can be executed with the fo
 - `--init`: Creates the required files in the specified directory before benchmarking.
 - `--will`: Advises the future access of a file through the application interface.
 - `--wont`: Advises the future absence of access of a file through the application interface.
-- 
+
 #### Example Configurations
 Multiple example configurations are available in the folder benchmarks of the repository.
