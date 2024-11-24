@@ -1,0 +1,1 @@
+./custom_benchmark --path=path/to/file_%d.data --pattern=randread --files=32 --size=67108864 --seed=1234567890 --window=10 --blocksize=4096 --runtime=300 --interval=1024 --iteration=1024 --init --will
