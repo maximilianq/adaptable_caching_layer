@@ -46,6 +46,19 @@ void print_usage(const char *prog_name) {
 settings_t * parse_settings(int argc, char *argv[]) {
 
   settings_t * settings = malloc(sizeof(settings_t));
+  settings->path = NULL;
+  settings->pattern = 0;
+  settings->files = 0;
+  settings->size = 0;
+  settings->seed = 0;
+  settings->interval = 0;
+  settings->iterations = 0;
+  settings->runtime = 0;
+  settings->window = 0;
+  settings->blocksize = 0;
+  settings->will = 0;
+  settings->wont = 0;
+  settings->init = 0;
 
   // Define long options
   static struct option options[] = {
@@ -71,14 +84,12 @@ settings_t * parse_settings(int argc, char *argv[]) {
     if (opt == 1) {
         settings->path = optarg;
     } else if (opt == 2) {
-      printf("-----> %s\n", optarg);
       if (strcmp(optarg, "read") == 0) {
         settings->pattern = PATTERN_SEQUENTIAL_READ;
       } else if (strcmp(optarg, "write") == 0) {
         settings->pattern = PATTERN_SEQUENTIAL_WRITE;
       } else if (strcmp(optarg, "randread") == 0) {
         settings->pattern = PATTERN_RANDOM_READ;
-        printf("-----> %d\n", settings->pattern);
       } else if (strcmp(optarg, "randwrite") == 0) {
         settings->pattern = PATTERN_RANDOM_WRITE;
       } else {
@@ -306,6 +317,8 @@ result_t * perform_benchmark(settings_t * settings) {
         // build file path given the current index
         char path[PATH_MAX];
         snprintf(path, PATH_MAX, settings->path, selection[prefetch]);
+
+        printf("hello\n");
 
         acl_advise(path, ACL_DONTNEED);
       }

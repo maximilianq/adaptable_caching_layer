@@ -1,13 +1,15 @@
 #include "fsdp.h"
 
+#include <stdio.h>
+
 #include "../utils/path.h"
 #include "../utils/directory.h"
 
-void process_fsdp(prefetch_t * prefetch, char * source_path) {
+void process_fsdp(prefetch_t * prefetch, cache_miss_t cache_miss) {
 
     // retrieve parent path of current file
     char parent_path[PATH_MAX];
-    get_parent_path(source_path, parent_path);
+    get_parent_path(cache_miss.cm_path, parent_path);
 
     // retrieve files from directory
     char ** entries_buffer;

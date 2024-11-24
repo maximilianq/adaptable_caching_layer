@@ -5,6 +5,9 @@
 
 #include "prefetch.h"
 
+#define ACL_WILLNEED 1
+#define ACL_DONTNEED 2
+
 void acl_init();
 
 int acl_advise(const char * path, int flags);

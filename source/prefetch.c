@@ -76,6 +76,7 @@ void * prefetch_handler(void * data) {
     if (prefetch->p_strategy.ps_init != NULL)
         prefetch->p_strategy.ps_init(prefetch);
 
+    cache_miss_t * cache_miss;
     char * path;
     while(prefetch->p_status) {
 
@@ -85,11 +86,11 @@ void * prefetch_handler(void * data) {
             continue;
         }
 
-        path = pop_queue(&prefetch->p_history);
-        if (path != NULL) {
+        cache_miss = pop_queue(&prefetch->p_history);
+        if (cache_miss != NULL) {
             if (prefetch->p_strategy.ps_process != NULL)
-                prefetch->p_strategy.ps_process(prefetch, path);
-            free(path);
+                prefetch->p_strategy.ps_process(prefetch, *cache_miss);
+            free(cache_miss);
         }
 
 	    usleep(100);

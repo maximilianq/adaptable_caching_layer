@@ -5,13 +5,22 @@
 
 #include "structures/queue.h"
 
+#define CM_READ 1
+#define CM_WRITE 2
+
 // forward declaration of prefetch_t for utilization in prefetch_t due to circular dependency
 typedef struct prefetch prefetch_t;
+
+typedef struct cache_miss {
+    char cm_path[PATH_MAX];
+    time_t cm_time;
+    int cm_operation;
+} cache_miss_t;
 
 // functions to be implemented by custom prefetching logic
 typedef void (* init_prefetch_t) (prefetch_t * prefetch);
 typedef void (* free_prefetch_t) (prefetch_t * prefetch);
-typedef void (* process_prefetch_t) (prefetch_t * prefetch, char * path);
+typedef void (* process_prefetch_t) (prefetch_t * prefetch, cache_miss_t cache_miss);
 
 typedef struct prefetch_strategy {
     init_prefetch_t ps_init;
