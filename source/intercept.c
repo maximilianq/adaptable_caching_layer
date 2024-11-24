@@ -16,7 +16,7 @@ int open(const char * path, int flags, ...) {
 
     // expand relative path to full path
     char * full_path = malloc(PATH_MAX * sizeof(char));
-    get_full_path(path, full_path, PATH_MAX);
+    get_full_path(path, full_path);
 
     // decode the variadic arguments
     va_list args;
@@ -25,7 +25,7 @@ int open(const char * path, int flags, ...) {
     va_end(args);
 
     // check if file is in cached directory
-    if (is_cache_path(full_path)) {
+    if (is_cacheable_path(full_path)) {
         return acl_open(full_path, flags, mode);
     }
 
@@ -36,7 +36,7 @@ int open64(const char * path, int flags, ...) {
 
     // expand relative path to full path
     char * full_path = malloc(PATH_MAX * sizeof(char));
-    get_full_path(path, full_path, PATH_MAX);
+    get_full_path(path, full_path);
 
     // decode the variadic arguments
     va_list args;
@@ -45,7 +45,7 @@ int open64(const char * path, int flags, ...) {
     va_end(args);
 
     // check if file is in cached directory
-    if (is_cache_path(full_path)) {
+    if (is_cacheable_path(full_path)) {
         return acl_open(full_path, flags, mode);
     }
 

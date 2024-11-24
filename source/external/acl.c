@@ -27,7 +27,7 @@ void acl_prefetch(prefetch_strategy_t strategy) {
 }
 
 // dummy implementation of the customization interface enabling application specific caching logic
-void acl_cache(prefetch_strategy_t strategy) {
+void acl_cache(cache_policy_t policy) {
 
     if (!warned) {
         printf("WARNING: acl library was not loaded even though acl method is implemented!\n");
@@ -35,7 +35,7 @@ void acl_cache(prefetch_strategy_t strategy) {
     }
 }
 
-void acl_predict(char * path) {
+void acl_select(char * path) {
 
     if (!warned) {
         printf("WARNING: acl library was not loaded even though acl method is implemented!\n");

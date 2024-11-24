@@ -1,4 +1,3 @@
-
 #define _GNU_SOURCE
 
 #include "acl.h"
@@ -34,10 +33,16 @@ mapping_t * mapping = NULL;
 
 pthread_t thread_lookahead;
 
-void process_files(cache_t * cache) {
+void acl_import(cache_t * cache) {
+
+	const char * cache_location = getenv("ACL_CACHE_PATH");
+	if (cache_location == NULL) {
+		perror("Error: could not retrieve cache path!");
+		exit(EXIT_FAILURE);
+	}
 
 	struct dirent * directory_entry;
-	DIR * directory = opendir(CACHE_PATH);
+	DIR * directory = opendir(cache_location);
 
 	if (directory == NULL) {
 		perror("Error: could not open cache directory.");
@@ -149,7 +154,7 @@ void acl_init() {
 		prefetch_init(prefetch, cache, prefetch_strategy);
 	}
 
-	process_files(cache);
+	acl_import(cache);
 }
 
 int ACL_WILLNEED = 1;
@@ -159,7 +164,7 @@ int acl_advise(const char * path, int flags) {
 
 	// expand relative path to full path
 	char * source_path = malloc(PATH_MAX * sizeof(char));
-	get_full_path(path, source_path, PATH_MAX);
+	get_full_path(path, source_path);
 
 	// check if file will be needed in the future and push_queue into high priority caching
 	if ((flags & ACL_WILLNEED) == ACL_WILLNEED) {
@@ -299,8 +304,6 @@ ssize_t acl_write(int fd, const void * buffer, size_t count) {
 	}
 
 	if (mapping->m_entries[fd]->me_entry == NULL) {
-
-                //printf("Hello World\n");
 
                 if (mapping->m_entries[fd]->me_hinted == 0) {
 

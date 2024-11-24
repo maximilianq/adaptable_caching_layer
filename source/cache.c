@@ -67,7 +67,7 @@ int insert_cache(cache_t * cache, char * path) {
 
     // get cache path from the given
     char cache_path[PATH_MAX];
-    if (get_cache_path(path, cache_path, PATH_MAX) == NULL) {
+    if (get_cache_path(path, cache_path) == NULL) {
         return -1;
     }
 
