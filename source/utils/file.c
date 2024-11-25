@@ -13,7 +13,7 @@
 
 #include "../calls.h"
 
-#define BLOCK_SIZE 4096
+#define BLOCK_SIZE 8192
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 char * data_buffer = NULL;
@@ -65,14 +65,6 @@ void copy_file_interval(char * source, char * target, ssize_t start, ssize_t end
             exit(EXIT_FAILURE);
         }
 
-	//printf("~~~~~> %d %d\n", bytes_read, bytes_written);
-	
-        //if (bytes_read != bytes_written) {
-        //    perror("ERROR: could not copy bytes from source to target!");
-        //    exit(EXIT_FAILURE);
-        //}
-	
-
         bytes_total += bytes_read;
 
     } while (bytes_total < start);
@@ -102,7 +94,7 @@ void copy_file_interval(char * source, char * target, ssize_t start, ssize_t end
 void copy_data(int source_file, int cache_file) {
 
     if (data_buffer == NULL) {
-        if (posix_memalign((void **) &data_buffer, 4096, BLOCK_SIZE * 16) != 0) {
+        if (posix_memalign((void **) &data_buffer, 4096, BLOCK_SIZE) != 0) {
             perror("Error allocating aligned memory\n");
             exit(EXIT_FAILURE);
         }
@@ -115,8 +107,8 @@ void copy_data(int source_file, int cache_file) {
     lseek(source_file, 0, SEEK_SET);
     lseek(cache_file, 0, SEEK_SET);
 
-    while ((bytes_read = sys_read(source_file, data_buffer, BLOCK_SIZE * 2)) > 0) {
-        bytes_written = sys_write(cache_file, data_buffer, BLOCK_SIZE * 2);
+    while ((bytes_read = sys_read(source_file, data_buffer, BLOCK_SIZE)) > 0) {
+        bytes_written = sys_write(cache_file, data_buffer, BLOCK_SIZE);
         if (bytes_written == -1) {
             perror("Error writing to destination file");
             exit(EXIT_FAILURE);

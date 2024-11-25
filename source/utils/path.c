@@ -30,7 +30,7 @@ char * get_cache_path(const char * input, char * output) {
 
         const char * source_location_string = getenv("ACL_SOURCE_PATH");
         if (source_location_string == NULL) {
-            perror("Error: could not retrieve cache path!");
+            perror("Error: could not retrieve source path!");
             exit(EXIT_FAILURE);
         }
 
@@ -81,7 +81,7 @@ int is_cacheable_path(const char * path) {
 
         const char * source_location_string = getenv("ACL_SOURCE_PATH");
         if (source_location_string == NULL) {
-            perror("Error: could not retrieve cache path!");
+            perror("Error: could not retrieve source path!");
             exit(EXIT_FAILURE);
         }
 

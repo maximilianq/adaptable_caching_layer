@@ -143,7 +143,6 @@ void create_files(settings_t * settings) {
 
     int file = open(path, O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU | S_IRWXG | S_IRWXO);
     if (file == -1) {
-      printf("-----> %s\n", path);
       perror("Error: could not create benchmark file.");
       exit(EXIT_FAILURE);
     }
@@ -317,8 +316,6 @@ result_t * perform_benchmark(settings_t * settings) {
         // build file path given the current index
         char path[PATH_MAX];
         snprintf(path, PATH_MAX, settings->path, selection[prefetch]);
-
-        printf("hello\n");
 
         acl_advise(path, ACL_DONTNEED);
       }
